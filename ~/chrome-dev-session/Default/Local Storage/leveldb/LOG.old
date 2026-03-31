@@ -1,6 +1,0 @@
-2025/10/03-16:40:29.777 1311d5 Reusing MANIFEST /Users/Max/Code/kleinanzeigen_upload/~/chrome-dev-session/Default/Local Storage/leveldb/MANIFEST-000001
-2025/10/03-16:40:29.778 1311d5 Recovering log #10
-2025/10/03-16:40:29.778 1311d5 Reusing old log /Users/Max/Code/kleinanzeigen_upload/~/chrome-dev-session/Default/Local Storage/leveldb/000010.log 
-2025/10/03-16:40:42.414 1311d9 Level-0 table #14: started
-2025/10/03-16:40:42.418 1311d9 Level-0 table #14: 48826 bytes OK
-2025/10/03-16:40:42.422 1311d9 Delete type=0 #10
