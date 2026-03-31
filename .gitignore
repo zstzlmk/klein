@@ -1,3 +1,11 @@
 chrome-dev-session/
 node_modules/
 .DS_Store
+config.json
+
+# Photos in template folders
+kleinanzeigen/**/*.jpg
+kleinanzeigen/**/*.jpeg
+kleinanzeigen/**/*.png
+kleinanzeigen/**/*.webp
+kleinanzeigen/**/*.heic
