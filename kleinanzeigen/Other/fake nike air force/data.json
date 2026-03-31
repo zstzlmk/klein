@@ -1,0 +1,23 @@
+{
+    "title": "[FAKE] Nike Air Force 1 High Schwarz Wildleder Gum Sole Gr. 41",
+    "description": "Fake Nike Air Force 1 High Sneaker in schwarz mit Wildleder-Obermaterial und charakteristischer gummi-brauner Sohle. Größe 41. Stylischer Streetwear-Klassiker in robuster Ausführung. Winterschuhe. Guter Zustand. Versand oder Abholung möglich.",
+    "price": "60",
+    "priceType": "FIXED",
+    "zipCode": "44141",
+    "street": "",
+    "categoryPath": "Mode & Beauty > Herrenschuhe",
+    "locationId": "16814",
+    "condition": "like_new",
+    "dynamicFields": {
+        "schuhe_herren.art_s": "sneaker_sportschuhe",
+        "schuhe_herren.brand_s": "nike",
+        "schuhe_herren.groesse_s": "41",
+        "schuhe_herren.color_s": "schwarz",
+        "schuhe_herren.condition_s": "like_new",
+        "schuhe_herren.versand_s": "ja",
+        "pstad-city": "Dortmund - Mitte"
+    },
+    "autocompleteFields": {
+        "brands-input": "Nike"
+    }
+}

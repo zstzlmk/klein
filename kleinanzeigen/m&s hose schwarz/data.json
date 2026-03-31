@@ -1,0 +1,23 @@
+{
+    "title": "M&S Limited Edition Anzughose Schwarz Slim Fit W34 L31",
+    "description": "Marks & Spencer Limited Edition Anzughose in schwarz, Größe W34 L31 (86cm/79cm). Slim Fit Schnitt mit feiner Struktur, klassischer Bügelfalte und geradem Bein. Elegante Business-Hose mit Knopfverschluss und Gesäßtasche. Sehr guter Zustand. Versand oder Abholung möglich.",
+    "price": "35",
+    "priceType": "FIXED",
+    "zipCode": "44141",
+    "street": "",
+    "categoryPath": "Mode & Beauty > Herrenbekleidung",
+    "locationId": "16814",
+    "condition": "like_new",
+    "dynamicFields": {
+        "kleidung_herren.art_s": "hosen",
+        "kleidung_herren.brand_s": "marks_spencer",
+        "kleidung_herren.groesse_s": "m",
+        "kleidung_herren.color_s": "schwarz",
+        "kleidung_herren.condition_s": "like_new",
+        "kleidung_herren.versand_s": "ja",
+        "pstad-city": "Dortmund - Mitte"
+    },
+    "autocompleteFields": {
+        "brands-input": "Marks & Spencer"
+    }
+}

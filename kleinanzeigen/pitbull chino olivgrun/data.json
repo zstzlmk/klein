@@ -1,0 +1,23 @@
+{
+    "title": "Pitbull Classic Chino Hose Olivgrün W34 L34 Herren Baumwolle",
+    "description": "Classic Chino Hose in olivgrün/dunkelgrün, Größe W34 L34. Hochwertiger Baumwollmix (98% Baumwolle, 2% Lycra) mit braunen Knöpfen. Versand oder Abholung möglich.",
+    "price": "20",
+    "priceType": "FIXED",
+    "zipCode": "44141",
+    "street": "",
+    "categoryPath": "Mode & Beauty > Herrenbekleidung",
+    "locationId": "16814",
+    "condition": "like_new",
+    "dynamicFields": {
+        "kleidung_herren.art_s": "hosen",
+        "kleidung_herren.brand_s": "sonstige",
+        "kleidung_herren.groesse_s": "m",
+        "kleidung_herren.color_s": "grün",
+        "kleidung_herren.condition_s": "like_new",
+        "kleidung_herren.versand_s": "ja",
+        "pstad-city": "Dortmund - Mitte"
+    },
+    "autocompleteFields": {
+        "brands-input": "Sonstige"
+    }
+}

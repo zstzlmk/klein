@@ -1,0 +1,23 @@
+{
+    "title": "H&M Chino Hose Blau mit Knopfleiste Gr. 30 Herren 100% Baumwolle",
+    "description": "H&M Chinohose in hellblau/jeansblau, Größe 30 (EU/ US). Besonderes Detail: Stilvolle Knopfleiste vorne mit Metallknöpfen in Messing-Optik. 100% Baumwolle, angenehmer Tragekomfort. Klassischer Schnitt mit gerader Passform. Sehr guter Zustand. Versand oder Abholung möglich.",
+    "price": "20",
+    "priceType": "FIXED",
+    "zipCode": "44141",
+    "street": "",
+    "categoryPath": "Mode & Beauty > Herrenbekleidung",
+    "locationId": "16814",
+    "condition": "like_new",
+    "dynamicFields": {
+        "kleidung_herren.art_s": "hosen",
+        "kleidung_herren.brand_s": "hm",
+        "kleidung_herren.groesse_s": "s",
+        "kleidung_herren.color_s": "blau",
+        "kleidung_herren.condition_s": "like_new",
+        "kleidung_herren.versand_s": "ja",
+        "pstad-city": "Dortmund - Mitte"
+    },
+    "autocompleteFields": {
+        "brands-input": "H&M"
+    }
+}

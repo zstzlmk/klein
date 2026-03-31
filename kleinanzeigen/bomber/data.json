@@ -1,0 +1,21 @@
+{
+    "title": "Lammfelljacke Serge Pariente KENNEDI | Bomber | Gr. L",
+    "description": "Serge Pariente KENNEDI SHEARLING Bomberjacke\n\nStil: Lammfell-Bomber (Mouton)\n\nFarbe: Schwarz\n\nGröße: L\n\nZustand: Getragen, aber makellos. Keinerlei Beschädigungen.\n\nBeleg: Originalrechnung (01/2022) über 489,95 € ist vorhanden.\n\nEin Klassiker für die kalte Jahreszeit in einem einwandfreien Zustand.",
+    "price": "300",
+    "priceType": "FIXED",
+    "zipCode": "44141",
+    "street": "",
+    "categoryPath": "Mode & Beauty > Herrenbekleidung",
+    "condition": "like_new",
+    "dynamicFields": {
+        "kleidung_herren.art_s": "jacken_maentel",
+        "kleidung_herren.brand_s": "sonstige",
+        "kleidung_herren.groesse_s": "l",
+        "kleidung_herren.color_s": "schwarz",
+        "kleidung_herren.condition_s": "like_new",
+        "kleidung_herren.versand_s": "ja"
+    },
+    "autocompleteFields": {
+        "brands-input": "Sonstige"
+    }
+}

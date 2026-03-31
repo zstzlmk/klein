@@ -1,0 +1,23 @@
+{
+    "title": "H&M Slim Fit Chino Hose Beige Gr. 33 Herren Stoffhose",
+    "description": "H&M Slim Fit Chinohose in beige/khaki, Größe 33 (UK 33, CN 175/84A). Guter Zustand. Versand oder Abholung möglich.",
+    "price": "20",
+    "priceType": "FIXED",
+    "zipCode": "44141",
+    "street": "",
+    "categoryPath": "Mode & Beauty > Herrenbekleidung",
+    "locationId": "16814",
+    "condition": "like_new",
+    "dynamicFields": {
+        "kleidung_herren.art_s": "hosen",
+        "kleidung_herren.brand_s": "hm",
+        "kleidung_herren.groesse_s": "m",
+        "kleidung_herren.color_s": "beige",
+        "kleidung_herren.condition_s": "like_new",
+        "kleidung_herren.versand_s": "ja",
+        "pstad-city": "Dortmund - Mitte"
+    },
+    "autocompleteFields": {
+        "brands-input": "H&M"
+    }
+}

@@ -1,0 +1,23 @@
+{
+    "title": "Dunkelblaue Lederschuhe Gr. 41 wie neu",
+    "description": "Dunkelblaue Lederschuhe in Größe 41. Bequemer Passform. Robuste Sohle und hochwertige Verarbeitung. Wie neu, kaum getragen. Versand oder Abholung möglich.",
+    "price": "45",
+    "priceType": "FIXED",
+    "zipCode": "44141",
+    "street": "",
+    "categoryPath": "Mode & Beauty > Herrenschuhe",
+    "locationId": "16814",
+    "condition": "like_new",
+    "dynamicFields": {
+        "schuhe_herren.art_s": "halb_schnuerschuhe",
+        "schuhe_herren.brand_s": "sonstige",
+        "schuhe_herren.groesse_s": "41",
+        "schuhe_herren.color_s": "blau",
+        "schuhe_herren.condition_s": "like_new",
+        "schuhe_herren.versand_s": "ja",
+        "pstad-city": "Dortmund - Mitte"
+    },
+    "autocompleteFields": {
+        "brands-input": "Sonstige"
+    }
+}

@@ -1,0 +1,23 @@
+{
+    "title": "Nike Air Zoom Pegasus Laufschuhe Grau/Schwarz Gr. 42 Shield",
+    "description": "Nike Air Zoom Pegasus Laufschuhe in grau/schwarz, Größe 42. Mit wasserfester Shield-Technologie, Zoom-Dämpfung und elastischem Schnürsystem. Sehr guter Zustand. Ideal für Laufen bei jedem Wetter. Versand oder Abholung möglich.",
+    "price": "55",
+    "priceType": "FIXED",
+    "zipCode": "44141",
+    "street": "",
+    "categoryPath": "Mode & Beauty > Herrenschuhe",
+    "locationId": "16814",
+    "condition": "like_new",
+    "dynamicFields": {
+        "schuhe_herren.art_s": "sneaker_sportschuhe",
+        "schuhe_herren.brand_s": "nike",
+        "schuhe_herren.groesse_s": "42",
+        "schuhe_herren.color_s": "grau",
+        "schuhe_herren.condition_s": "like_new",
+        "schuhe_herren.versand_s": "ja",
+        "pstad-city": "Dortmund - Mitte"
+    },
+    "autocompleteFields": {
+        "brands-input": "Nike"
+    }
+}

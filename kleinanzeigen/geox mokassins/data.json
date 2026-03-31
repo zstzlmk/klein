@@ -1,0 +1,23 @@
+{
+    "title": "Geox Mokassins Echtleder Schwarz Gr. 41",
+    "description": "Geox Mokassins aus schwarzem Echtleder in Größe 41. Mit patentiertem Geox-Atmungssystem für trockene Füße. Komfortable Slipper im eleganten Business-Stil. Kaum Gebrauchsspuren, sehr guter Zustand. Versand oder Abholung möglich.",
+    "price": "40",
+    "priceType": "FIXED",
+    "zipCode": "44141",
+    "street": "",
+    "categoryPath": "Mode & Beauty > Herrenschuhe",
+    "locationId": "16814",
+    "condition": "like_new",
+    "dynamicFields": {
+        "schuhe_herren.art_s": "halb_schnuerschuhe",
+        "schuhe_herren.brand_s": "geox",
+        "schuhe_herren.groesse_s": "41",
+        "schuhe_herren.color_s": "schwarz",
+        "schuhe_herren.condition_s": "like_new",
+        "schuhe_herren.versand_s": "ja",
+        "pstad-city": "Dortmund - Mitte"
+    },
+    "autocompleteFields": {
+        "brands-input": "Geox"
+    }
+}

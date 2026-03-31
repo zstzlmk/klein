@@ -1,0 +1,19 @@
+{
+    "title": "IKEA Neiden Bett (140x200) + Lattenrost + Matratze",
+    "description": "Ich biete hier mein IKEA Neiden Bettgestell (Kiefer, 140x200 cm) inklusive Medistar Lattenrost an. Das Bett und der Lattenrost sind in einem guten, gebrauchten Zustand. Das Bett ist bereits auseinandergebaut.\n\nWichtig: Das Bett wird NUR komplett mit der Matratze abgegeben!\n\nDie Matratze hat ihre besten Tage definitiv hinter sich und ist durchgelegen (siehe Bilder). Ihr müsst alles zusammen mitnehmen. Wer das Bett und den Lattenrost haben möchte, nimmt auch die Matratze mit, ihr könnt sie danach ja direkt zur EDG bringen. Einzelabgabe ist nicht möglich!",
+    "price": "100",
+    "priceType": "NEGOTIABLE",
+    "zipCode": "44141",
+    "street": "",
+    "categoryPath": "Haus & Garten > Schlafzimmer",
+    "locationId": "16814",
+    "condition": "ok",
+    "dynamicFields": {
+        "schlafzimmer.art_s": "betten",
+        "schlafzimmer.condition_s": "ok",
+        "schlafzimmer.material_s": "pine",
+        "schlafzimmer.versand_s": "nein",
+        "pstad-city": "Dortmund - Mitte"
+    },
+    "autocompleteFields": {}
+}

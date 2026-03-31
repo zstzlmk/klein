@@ -1,0 +1,23 @@
+{
+    "title": "Dividers Violett Chino Hose Slim Fit W34 L34 Herren Stoffhose",
+    "description": "Dividers Chino Hose in violett/aubergine, Größe W34 L34. Slim Fit Schnitt mit klassischen Gesäßtaschen und dekorativen Details. Besondere Farbe für einen individuellen Stil. Sportliche Stoffhose mit dekorativem Innenfutter. Sehr guter Zustand, kaum Gebrauchsspuren. Versand oder Abholung möglich.",
+    "price": "25",
+    "priceType": "FIXED",
+    "zipCode": "44141",
+    "street": "",
+    "categoryPath": "Mode & Beauty > Herrenbekleidung",
+    "locationId": "16814",
+    "condition": "like_new",
+    "dynamicFields": {
+        "kleidung_herren.art_s": "hosen",
+        "kleidung_herren.brand_s": "sonstige",
+        "kleidung_herren.groesse_s": "m",
+        "kleidung_herren.color_s": "braun",
+        "kleidung_herren.condition_s": "like_new",
+        "kleidung_herren.versand_s": "ja",
+        "pstad-city": "Dortmund - Mitte"
+    },
+    "autocompleteFields": {
+        "brands-input": "Sonstige"
+    }
+}

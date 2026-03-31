@@ -1,0 +1,23 @@
+{
+    "title": "Buffalo London Braune Wildleder Desert Boots Gr. 41 Chukka",
+    "description": "Buffalo London Desert Boots in braun, Größe 41. Hochwertiges Wildleder im Chukka-Stil mit heller Kontrastsohle und beigen Schnürsenkeln. Klassisches Design mit Lederbesatz an der Ferse. Vielseitig kombinierbar für Casual-Looks. Versand oder Abholung möglich.",
+    "price": "60",
+    "priceType": "FIXED",
+    "zipCode": "44141",
+    "street": "",
+    "categoryPath": "Mode & Beauty > Herrenschuhe",
+    "locationId": "16814",
+    "condition": "like_new",
+    "dynamicFields": {
+        "schuhe_herren.art_s": "stiefel",
+        "schuhe_herren.brand_s": "buffalo",
+        "schuhe_herren.groesse_s": "41",
+        "schuhe_herren.color_s": "braun",
+        "schuhe_herren.condition_s": "like_new",
+        "schuhe_herren.versand_s": "ja",
+        "pstad-city": "Dortmund - Mitte"
+    },
+    "autocompleteFields": {
+        "brands-input": "Buffalo"
+    }
+}

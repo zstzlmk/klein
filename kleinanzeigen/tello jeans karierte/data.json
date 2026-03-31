@@ -1,0 +1,23 @@
+{
+    "title": "Tello Jeans Premium Karierte Hose Grau/Schwarz W31 L34 Herren",
+    "description": "Tello Jeans Premium Collection Hose mit Karo-Muster in grau/schwarz, Größe W31 L34. Elegantes Design mit klassischem Schnitt und aufgesetzten Gesäßtaschen.\nModell EGEN 1, hochwertiger Stoff mit Karomuster.\nIdeal für Business und Casual. Sehr guter Zustand.\nVersand oder Abholung möglich.",
+    "price": "20",
+    "priceType": "FIXED",
+    "zipCode": "44141",
+    "street": "",
+    "categoryPath": "Mode & Beauty > Herrenbekleidung",
+    "locationId": "16814",
+    "condition": "like_new",
+    "dynamicFields": {
+        "kleidung_herren.art_s": "hosen",
+        "kleidung_herren.brand_s": "sonstige",
+        "kleidung_herren.groesse_s": "m",
+        "kleidung_herren.color_s": "grau",
+        "kleidung_herren.condition_s": "like_new",
+        "kleidung_herren.versand_s": "ja",
+        "pstad-city": "Dortmund - Mitte"
+    },
+    "autocompleteFields": {
+        "brands-input": "Sonstige"
+    }
+}

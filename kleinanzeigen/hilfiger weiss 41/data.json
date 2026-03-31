@@ -1,0 +1,23 @@
+{
+    "title": "Tommy Hilfiger Sneaker Weiß Canvas Gr. 41 Stoffschuhe",
+    "description": "Tommy Hilfiger Sneaker in weiß aus Canvas/Stoff, Größe 41. Mit charakteristischer roter Sohle und \"Hilfiger 85\" Logo-Prägung. Klassischer Freizeitschuh im lässigen Vintage-Stil. Gut erhalten, leichte Gebrauchsspuren. Versand oder Abholung möglich.",
+    "price": "15",
+    "priceType": "FIXED",
+    "zipCode": "44141",
+    "street": "",
+    "categoryPath": "Mode & Beauty > Herrenschuhe",
+    "locationId": "16814",
+    "condition": "alright",
+    "dynamicFields": {
+        "schuhe_herren.art_s": "sneaker_sportschuhe",
+        "schuhe_herren.brand_s": "tommy_hilfiger",
+        "schuhe_herren.groesse_s": "41",
+        "schuhe_herren.color_s": "weiß",
+        "schuhe_herren.condition_s": "alright",
+        "schuhe_herren.versand_s": "ja",
+        "pstad-city": "Dortmund - Mitte"
+    },
+    "autocompleteFields": {
+        "brands-input": "Tommy Hilfiger"
+    }
+}

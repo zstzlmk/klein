@@ -1,0 +1,18 @@
+{
+    "title": "Samsung Mikrowelle Defekt",
+    "description": "Defekt: Das Gerät lässt sich nicht mehr einschalten.",
+    "price": "5",
+    "priceType": "FIXED",
+    "zipCode": "44141",
+    "street": "",
+    "categoryPath": "Haus & Garten > Küche & Esszimmer",
+    "locationId": "26172",
+    "condition": "",
+    "dynamicFields": {
+        "kueche_esszimmer.art_s": "sonstige",
+        "kueche_esszimmer.color_s": "schwarz",
+        "kueche_esszimmer.versand_s": "nein",
+        "pstad-city": "Dortmund - Körne"
+    },
+    "autocompleteFields": {}
+}

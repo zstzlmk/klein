@@ -1,0 +1,23 @@
+{
+    "title": "Nike SB Sneaker Schwarz Gr. 44 Skateschuhe Freizeitschuhe",
+    "description": "Nike SB Skateschuhe in schwarz mit weißem Swoosh, Größe 44 (US 10/UK 9). Gebraucht mit normalen Gebrauchsspuren, die Sohlen sind noch in gutem Zustand. Ideal für Alltag. Versand oder Abholung möglich.",
+    "price": "20",
+    "priceType": "FIXED",
+    "zipCode": "44141",
+    "street": "",
+    "categoryPath": "Mode & Beauty > Herrenschuhe",
+    "locationId": "16814",
+    "condition": "ok",
+    "dynamicFields": {
+        "schuhe_herren.art_s": "sneaker_sportschuhe",
+        "schuhe_herren.brand_s": "nike",
+        "schuhe_herren.groesse_s": "44",
+        "schuhe_herren.color_s": "schwarz",
+        "schuhe_herren.condition_s": "ok",
+        "schuhe_herren.versand_s": "ja",
+        "pstad-city": "Dortmund - Mitte"
+    },
+    "autocompleteFields": {
+        "brands-input": "Nike"
+    }
+}
