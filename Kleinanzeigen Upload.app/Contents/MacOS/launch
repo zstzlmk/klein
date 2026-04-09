@@ -1,0 +1,5 @@
+#!/bin/bash
+DIR="$(cd "$(dirname "$(dirname "$(dirname "$(dirname "$0")")")")" && pwd)"
+cd "$DIR"
+export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+exec npx electron . 2>/dev/null

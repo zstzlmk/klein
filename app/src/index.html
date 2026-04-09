@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Kleinanzeigen Upload</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1a1a1a;--sf:#242424;--sf2:#2e2e2e;--bd:#3a3a3a;--tx:#e0e0e0;--tx2:#999;--ac:#b5e941;--ac2:#326916}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--tx);display:flex;height:100vh;overflow:hidden}
+.drag{-webkit-app-region:drag;position:fixed;top:0;left:0;right:0;height:38px;z-index:50}
+button,input,textarea,select,a{-webkit-app-region:no-drag}
+.side{width:260px;min-width:260px;background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column}
+.side-hdr{padding:48px 16px 12px;border-bottom:1px solid var(--bd);display:flex;gap:8px}
+.side-hdr button{flex:1;padding:6px 10px;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;color:var(--tx);cursor:pointer;font-size:12px}
+.side-hdr button:hover{background:var(--bd)}
+.list{flex:1;overflow-y:auto;padding:8px}
+.card{padding:10px 12px;border-radius:8px;cursor:pointer;margin-bottom:4px;display:flex;align-items:center;gap:10px}
+.card:hover{background:var(--sf2)}.card.active{background:var(--ac2)}.card.bulk-sel{outline:2px solid var(--ac);outline-offset:-2px}
+.card .th{width:40px;height:40px;border-radius:6px;object-fit:cover;background:var(--sf2);flex-shrink:0}
+.card .inf{overflow:hidden}.card .inf .nm{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card .inf .mt{font-size:11px;color:var(--tx2)}
+.bbar{padding:12px;border-top:1px solid var(--bd);display:none}.bbar.vis{display:block}
+.bbar button{width:100%;padding:10px;background:var(--ac);color:#1a1a1a;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px}
+.bbar button:disabled{opacity:.4;cursor:not-allowed}
+.main{flex:1;overflow-y:auto;padding:48px 32px 32px;max-width:720px}
+.main.empty{display:flex;align-items:center;justify-content:center;color:var(--tx2);font-size:15px;max-width:none}
+.sec{margin-bottom:28px}
+.sec-t{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--tx2);letter-spacing:.8px;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--bd)}
+.fld{margin-bottom:14px}.fld label{display:block;font-size:12px;color:var(--tx2);margin-bottom:4px}
+.fld input,.fld textarea,.fld select{width:100%;padding:8px 10px;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;color:var(--tx);font-size:13px;font-family:inherit}
+.fld textarea{resize:vertical;min-height:80px}
+.fld input:focus,.fld textarea:focus,.fld select:focus{outline:none;border-color:var(--ac)}
+.fld input:disabled,.fld select:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:12px}.row .fld{flex:1}
+.pgrid{display:flex;flex-wrap:wrap;gap:8px;min-height:80px;padding:8px;background:var(--sf2);border-radius:8px;border:2px dashed var(--bd)}
+.pitem{position:relative;width:88px;height:88px;border-radius:6px;overflow:hidden;cursor:grab}
+.pitem img{width:100%;height:100%;object-fit:cover;pointer-events:none}
+.pitem .num{position:absolute;top:2px;left:2px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;font-weight:700;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.pitem .badge{position:absolute;bottom:2px;left:2px;background:var(--ac);color:#1a1a1a;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px}
+.pitem .rm{position:absolute;top:2px;right:2px;width:20px;height:20px;background:rgba(0,0,0,.7);color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:12px;display:none;align-items:center;justify-content:center}
+.pitem:hover .rm{display:flex}.pitem.dragging{opacity:.4}
+.padd{width:88px;height:88px;border-radius:6px;border:2px dashed var(--bd);background:none;color:var(--tx2);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;gap:4px}
+.padd:hover{border-color:var(--ac);color:var(--ac)}
+.sbar{position:fixed;bottom:0;left:0;right:0;background:var(--sf);border-top:1px solid var(--bd);padding:8px 16px;font-size:12px;color:var(--tx2);z-index:100;display:none}.sbar.vis{display:block}
+</style>
+</head>
+<body>
+<div class="drag"></div>
+<div class="side">
+    <div class="side-hdr"><button onclick="newItem()">+ Neu</button><button onclick="toggleBulk()">Bulk</button><button onclick="changeFolder()">📁</button></div>
+    <div class="list" id="itemList"></div>
+    <div class="bbar" id="bulkBar"><button id="bulkBtn" onclick="runBulk()" disabled>Posten (0)</button></div>
+</div>
+<div class="main empty" id="mp"><span>Wähle ein Item aus der Liste</span></div>
+<div class="sbar" id="sbar"></div>
+<script>
+let items=[],catData=null,activeItem=null,bulkMode=false,bulkSel=new Set(),dragIdx=null;
+function getParents(){if(!catData?.tree?.children)return[];return catData.tree.children.map(c=>({id:c.fieldValue,name:c.name}))}
+function getSubcategories(pn){if(!catData?.tree?.children)return[];const p=catData.tree.children.find(c=>c.name===pn);if(!p?.children)return[];return p.children.map(c=>({id:c.fieldValue,name:c.name,fieldName:c.fieldName,hasArt:!!(c.children&&c.children.length>0)}))}
+function getSchema(cid){return catData?.attributeSchemas?.[String(cid)]||null}
+function parseCatPath(p){if(!p)return{parent:'',sub:''};const ps=p.split('>').map(s=>s.trim());return{parent:ps[0]||'',sub:ps[1]||''}}
+const PT=[{v:'FIXED',l:'Festpreis'},{v:'NEGOTIABLE',l:'VB'},{v:'GIVE_AWAY',l:'Zu verschenken'}];
+const CONDS=[{v:'',l:'— Nicht gesetzt —'},{v:'new_with_tag',l:'Neu mit Etikett'},{v:'new',l:'Neu'},{v:'like_new',l:'Sehr Gut'},{v:'ok',l:'Gut'},{v:'alright',l:'In Ordnung'}];
+const SHIPS=[{v:'',l:'— Keine —'},{v:'HERMES_001',l:'Hermes Päckchen (4,89€)'},{v:'HERMES_002',l:'Hermes S-Paket (5,49€)'},{v:'HERMES_003',l:'Hermes M-Paket (6,99€)'},{v:'HERMES_004',l:'Hermes L-Paket (10,99€)'},{v:'DHL_001',l:'DHL 2kg (6,19€)'},{v:'DHL_002',l:'DHL 5kg (7,69€)'},{v:'DHL_003',l:'DHL 10kg (10,49€)'},{v:'DHL_005',l:'DHL 20kg (18,99€)'},{v:'DHL_004',l:'DHL 31,5kg (23,99€)'}];
+function sel(id,opts,cur){return`<select id="${id}">${opts.map(o=>`<option value="${esc(o.v)}"${o.v===cur?' selected':''}>${esc(o.l)}</option>`).join('')}</select>`}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+async function init(){const[{folder,items:ld},cats]=await Promise.all([window.api.getItems(),window.api.getCategories()]);items=ld;catData=cats;renderList();if(!folder)status('Kein Projektordner. Klicke 📁');if(!catData)status('categories.json fehlt. npm run scrape ausführen.')}
+function renderList(){const el=document.getElementById('itemList');el.innerHTML='';for(const item of items){const c=document.createElement('div');c.className='card'+(activeItem?.name===item.name?' active':'')+(bulkSel.has(item.path)?' bulk-sel':'');if(item.images.length>0){const img=document.createElement('img');img.className='th';window.api.getThumbnail(item.path+'/'+item.images[0]).then(p=>img.src='file://'+p);img.onerror=()=>{img.style.background='var(--sf2)';img.removeAttribute('src')};c.appendChild(img)}else{const d=document.createElement('div');d.className='th';c.appendChild(d)}const inf=document.createElement('div');inf.className='inf';inf.innerHTML=`<div class="nm">${esc(item.data.title||item.name)}</div><div class="mt">${item.data.price?item.data.price+' €':'—'} · ${item.images.length} Bilder</div>`;c.appendChild(inf);c.onclick=()=>{if(bulkMode){bulkSel.has(item.path)?bulkSel.delete(item.path):bulkSel.add(item.path);updBulk();renderList()}else{activeItem=item;renderList();renderDetail(item)}};el.appendChild(c)}}
+function renderDetail(item){const mp=document.getElementById('mp');mp.className='main';const d=item.data;const{parent,sub}=parseCatPath(d.categoryPath);const shipping=d.shippingOptions||[];const versandKey=d.dynamicFields?Object.keys(d.dynamicFields).find(k=>k.includes('versand')):null;const versandVal=versandKey?d.dynamicFields[versandKey]:(shipping.length>0?'ja':'nein');const parents=getParents();const parentOpts=[{v:'',l:'— Wählen —'},...parents.map(p=>({v:p.name,l:p.name}))];const subs=parent?getSubcategories(parent):[];const subOpts=[{v:'',l:'— Wählen —'},...subs.map(s=>({v:s.name,l:s.name}))];
+mp.innerHTML=`
+<div class="sec"><div class="sec-t">Fotos (${item.images.length})</div><div class="pgrid" id="pg"></div></div>
+<div class="sec"><div class="sec-t">Anzeige</div>
+<div class="fld"><label>Titel</label><input id="f-title" value="${esc(d.title)}" maxlength="65"></div>
+<div class="fld"><label>Beschreibung</label><textarea id="f-desc" rows="5">${esc(d.description)}</textarea></div>
+<div class="row"><div class="fld"><label>Preis (€)</label><input id="f-price" value="${esc(d.price)}" inputmode="decimal"></div><div class="fld"><label>Preistyp</label>${sel('f-pt',PT,d.priceType||'FIXED')}</div></div></div>
+<div class="sec"><div class="sec-t">Kategorie</div>
+<div class="row"><div class="fld"><label>Hauptkategorie</label>${sel('f-cat1',parentOpts,parent)}</div><div class="fld"><label>Unterkategorie</label>${sel('f-cat2',subOpts,sub)}</div></div></div>
+<div class="sec"><div class="sec-t">Zustand</div><div class="fld">${sel('f-cond',CONDS,d.condition||'')}</div></div>
+<div class="sec"><div class="sec-t">Versand</div>
+<div class="fld"><label>Versandart</label>${sel('f-versand',[{v:'nein',l:'Nur Abholung'},{v:'ja',l:'Versand möglich'},{v:'custom',l:'Individueller Versand'}],versandVal==='ja'&&shipping.length>0?'ja':versandVal==='custom'?'custom':'nein')}</div><div id="shipDet"></div></div>
+<div class="sec"><div class="sec-t">Kategorie-Attribute</div><div id="dynF"></div></div>
+<div class="sec"><div class="sec-t">Standort</div><div class="row"><div class="fld"><label>PLZ</label><input value="44141" disabled></div><div class="fld"><label>Ort</label><input value="Dortmund - Mitte" disabled></div></div></div>`;
+renderPhotos(item);renderShipDet();renderAttrs(item);
+document.getElementById('f-cat1').onchange=()=>{const p=document.getElementById('f-cat1').value;const ns=p?getSubcategories(p):[];const s2=document.getElementById('f-cat2');s2.innerHTML='<option value="">— Wählen —</option>'+ns.map(s=>`<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('');save();renderAttrs(item)};
+document.getElementById('f-cat2').onchange=()=>{save();renderAttrs(item)};
+document.getElementById('f-versand').onchange=()=>{renderShipDet();save()};
+mp.querySelectorAll('input:not(:disabled),textarea,select').forEach(el=>{el.addEventListener('change',save);el.addEventListener('blur',save)})}
+function renderShipDet(){const m=document.getElementById('f-versand')?.value;const c=document.getElementById('shipDet');if(!c)return;const d=activeItem?.data||{};const sh=d.shippingOptions||[];
+if(m==='ja'){c.innerHTML=`<div class="row" style="margin-top:8px"><div class="fld"><label>Option 1</label>${sel('f-s0',SHIPS,sh[0]||'')}</div><div class="fld"><label>Option 2</label>${sel('f-s1',SHIPS,sh[1]||'')}</div></div>`;c.querySelectorAll('select').forEach(el=>el.addEventListener('change',save))}
+else if(m==='custom'){c.innerHTML=`<div class="fld" style="margin-top:8px"><label>Versandkosten (€)</label><input id="f-shipcost" value="${esc(d.customShippingCost||'')}" inputmode="decimal"></div>`;const inp=c.querySelector('input');inp.addEventListener('change',save);inp.addEventListener('blur',save)}
+else{c.innerHTML=''}}
+function renderAttrs(item){const c=document.getElementById('dynF');if(!c)return;c.innerHTML='';const d=item.data;const cat2=document.getElementById('f-cat2')?.value;const cat1=document.getElementById('f-cat1')?.value;const subs=cat1?getSubcategories(cat1):[];const sub=subs.find(s=>s.name===cat2);
+if(!sub){c.innerHTML='<div style="color:var(--tx2);font-size:12px">Kategorie wählen um Attribute zu sehen</div>';return}
+const schema=getSchema(sub.id);if(!schema||!schema.attributes||Object.keys(schema.attributes).length===0){c.innerHTML='<div style="color:var(--tx2);font-size:12px">Keine Attribute für diese Kategorie</div>';return}
+const dynVals={};if(d.dynamicFields)for(const[k,v]of Object.entries(d.dynamicFields)){dynVals[k.replace(/_s$/,'')]=v}
+for(const[key,attr]of Object.entries(schema.attributes)){if(key.includes('versand')||key.includes('condition'))continue;if(attr.fakeSubCategory)continue;const cur=dynVals[key]||'';const div=document.createElement('div');div.className='fld';
+if(attr.options.length>0){const opts=[{v:'',l:'— Wählen —'},...attr.options.map(o=>({v:o.value,l:o.label}))];div.innerHTML=`<label>${esc(attr.name)}${attr.required?' *':''}</label>${sel('dyn-'+key,opts,cur)}`}
+else{div.innerHTML=`<label>${esc(attr.name)}${attr.required?' *':''}</label><input class="dyn-input" data-key="${esc(key)}" value="${esc(cur)}">`}
+c.appendChild(div)}
+c.querySelectorAll('select,input').forEach(el=>{el.addEventListener('change',save);el.addEventListener('blur',save)})}
+async function renderPhotos(item){const grid=document.getElementById('pg');if(!grid)return;grid.innerHTML='';
+for(let i=0;i<item.images.length;i++){const img=item.images[i];const div=document.createElement('div');div.className='pitem';div.draggable=true;
+div.ondragstart=e=>{dragIdx=i;div.classList.add('dragging');e.dataTransfer.effectAllowed='move'};div.ondragend=()=>{div.classList.remove('dragging');dragIdx=null};div.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='move'};
+div.ondrop=e=>{e.preventDefault();if(dragIdx===null||dragIdx===i)return;const moved=item.images.splice(dragIdx,1)[0];item.images.splice(i,0,moved);item.data.photoOrder=[...item.images];save();renderPhotos(item);renderList()};
+const imgEl=document.createElement('img');const tp=await window.api.getThumbnail(item.path+'/'+img);imgEl.src='file://'+tp;div.appendChild(imgEl);
+const num=document.createElement('span');num.className='num';num.textContent=i+1;div.appendChild(num);
+if(i===0){const b=document.createElement('span');b.className='badge';b.textContent='Titelbild';div.appendChild(b)}
+const rm=document.createElement('button');rm.className='rm';rm.textContent='×';rm.onclick=async e=>{e.stopPropagation();await window.api.removePhoto(item.path,img);item.images.splice(i,1);item.data.photoOrder=[...item.images];save();renderPhotos(item);renderList()};div.appendChild(rm);grid.appendChild(div)}
+const add=document.createElement('button');add.className='padd';add.innerHTML='<span style="font-size:20px">+</span><span>Hinzufügen</span>';add.onclick=async()=>{const added=await window.api.addPhotos(item.path);if(added.length){item.images.push(...added);item.data.photoOrder=[...item.images];save();renderPhotos(item);renderList()}};grid.appendChild(add)}
+async function save(){if(!activeItem)return;const d=activeItem.data;const g=id=>document.getElementById(id)?.value||'';
+d.title=g('f-title');d.description=g('f-desc');d.price=g('f-price');d.priceType=g('f-pt');d.condition=g('f-cond');d.zipCode='44141';d.city='Dortmund - Mitte';d.photoOrder=[...activeItem.images];
+const c1=g('f-cat1'),c2=g('f-cat2');d.categoryPath=c1&&c2?c1+' > '+c2:c1||'';
+const vm=g('f-versand');const sh=[];if(vm==='ja'){const s0=g('f-s0'),s1=g('f-s1');if(s0)sh.push(s0);if(s1)sh.push(s1)}d.shippingOptions=sh;if(vm==='custom')d.customShippingCost=g('f-shipcost');
+if(!d.dynamicFields)d.dynamicFields={};
+const vk=Object.keys(d.dynamicFields).find(k=>k.includes('versand'));if(vk)d.dynamicFields[vk]=vm==='nein'?'nein':'ja';
+const ck=Object.keys(d.dynamicFields).find(k=>k.includes('condition'));if(ck&&d.condition)d.dynamicFields[ck]=d.condition;
+document.querySelectorAll('#dynF select,#dynF input.dyn-input').forEach(el=>{const key=el.id?.startsWith('dyn-')?el.id.substring(4):el.dataset?.key;if(!key)return;d.dynamicFields[key+'_s']=el.value;d.dynamicFields[key]=el.value});
+await window.api.saveItem(activeItem.path,d)}
+function toggleBulk(){bulkMode=!bulkMode;bulkSel.clear();document.getElementById('bulkBar').className=bulkMode?'bbar vis':'bbar';updBulk();renderList()}
+function updBulk(){const b=document.getElementById('bulkBtn');b.textContent=`Posten (${bulkSel.size})`;b.disabled=bulkSel.size===0}
+async function runBulk(){if(!bulkSel.size)return;status(`Upload von ${bulkSel.size} Anzeigen...`);document.getElementById('bulkBtn').disabled=true;const r=await window.api.runAutomation([...bulkSel]);const ok=r.filter(x=>x.success).length,fail=r.filter(x=>!x.success).length;status(`Fertig: ${ok} OK, ${fail} fehlgeschlagen`);document.getElementById('bulkBtn').disabled=false}
+async function newItem(){const name=prompt('Name:');if(!name)return;await window.api.createItem(name);const{items:r}=await window.api.getItems();items=r;renderList()}
+async function changeFolder(){const f=await window.api.selectFolder();if(f){const{items:r}=await window.api.getItems();items=r;activeItem=null;renderList();document.getElementById('mp').className='main empty';document.getElementById('mp').innerHTML='<span>Wähle ein Item</span>'}}
+function status(m){const b=document.getElementById('sbar');b.textContent=m;b.className='sbar vis';setTimeout(()=>b.className='sbar',5000)}
+init();
+</script>
+</body>
+</html>
