@@ -57,8 +57,14 @@ function loadItems(folder) {
             } else { ordered = imgs.sort(); }
             return { name: d.name, path: p, data, images: ordered };
         })
-        .filter(i => !i.data.posted) // hide already-posted items
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .sort((a, b) => {
+            // Posted items go to the bottom; among them, most-recently posted first.
+            const ap = a.data.posted, bp = b.data.posted;
+            if (ap && !bp) return 1;
+            if (!ap && bp) return -1;
+            if (ap && bp) return bp.localeCompare(ap);
+            return a.name.localeCompare(b.name);
+        });
 }
 
 function saveItem(itemPath, data) {
