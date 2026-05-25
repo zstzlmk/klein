@@ -106,7 +106,8 @@ async function selectCategory(page, categoryPath) {
 
     // 1. Wait briefly for suggestions to appear (they animate in after typing).
     let suggestion = null;
-    for (let i = 0; i < 12; i++) {
+    let sawSuggestions = false;
+    for (let i = 0; i < 24; i++) {
         suggestion = await page.evaluate((want, wantLeaf) => {
             const norm = (s) => String(s || '').replace(/[→›>»]/g, '>').replace(/\s+/g, ' ').trim().toLowerCase();
             const radios = Array.from(document.querySelectorAll('input[type="radio"]'));
@@ -128,28 +129,29 @@ async function selectCategory(page, categoryPath) {
                 leafMatches[0].r.click();
                 return { matched: 'leaf', text: leafMatches[0].text };
             }
-            return { matched: false, count: cats.length };
+            return { matched: false, count: cats.length, all: cats.map(c => c.text) };
         }, want, wantLeaf);
         if (suggestion && suggestion.matched) {
             log(`[category] suggestion matched (${suggestion.matched}): ${suggestion.text}`);
             await wait(300); return true;
         }
-        // Bail out of waiting if no suggestions are coming
-        const hasAny = await page.evaluate(() => {
-            const radios = document.querySelectorAll('input[type="radio"]');
-            for (const r of radios) {
-                const lbl = r.closest('label') || document.querySelector(`label[for="${r.id}"]`);
-                if (lbl && /[→›>»]/.test(lbl.textContent)) return true;
-            }
-            return false;
-        });
-        if (hasAny && i > 2) break; // suggestions exist but none match
+        if (suggestion && suggestion.count > 0) sawSuggestions = true;
+        // If suggestions exist but none match, no point waiting more.
+        if (sawSuggestions && i > 4) break;
         await wait(250);
+    }
+    if (suggestion && suggestion.count > 0 && !suggestion.matched) {
+        log(`[category] suggestions present but none match (want="${want}", got=${JSON.stringify(suggestion.all || []).slice(0, 200)})`);
+    } else if (!sawSuggestions) {
+        log('[category] no suggestions appeared within 6s, falling back to manual picker');
     }
 
     log(`[category] no exact suggestion, opening manual picker for: ${categoryPath}`);
 
     // 2. No matching suggestion — fall back to manual picker.
+    //    "Andere Kategorie wählen" navigates to /p-kategorie-aendern.html, a
+    //    full page (not a dialog) with one segment list per level. Each click
+    //    is a real navigation, so we must poll for the next level to appear.
     const opened = await page.evaluate(() => {
         const links = Array.from(document.querySelectorAll('a, button'));
         const link = links.find(el => /andere kategorie/i.test(el.textContent || ''));
@@ -157,28 +159,45 @@ async function selectCategory(page, categoryPath) {
         return false;
     });
     if (!opened) { log('[category] could not open manual picker'); return false; }
-    await wait(500);
 
     const parts = categoryPath.split('>').map(s => s.trim()).filter(Boolean);
+
+    // Poll up to ~6s for a clickable element with `label` to appear, then click it.
+    const findAndClick = async (label) => {
+        for (let i = 0; i < 24; i++) {
+            const ok = await page.evaluate((label) => {
+                const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+                const target = norm(label);
+                const visible = (el) => !!(el.offsetParent || el.getClientRects().length);
+                const scopedSel = 'dialog a, dialog button, dialog li, [role="dialog"] a, [role="dialog"] button, [role="dialog"] li, .categoryselector a, .categoryselector button, .categoryselector li';
+                const fallbackSel = 'a, button, li';
+                const matchIn = (sel) => {
+                    const cands = Array.from(document.querySelectorAll(sel));
+                    return cands.find(el => visible(el) && norm(el.textContent) === target);
+                };
+                const m = matchIn(scopedSel) || matchIn(fallbackSel);
+                if (!m) return false;
+                m.scrollIntoView({ block: 'center' });
+                m.click();
+                return true;
+            }, label);
+            if (ok) return true;
+            await wait(250);
+        }
+        return false;
+    };
+
     for (const part of parts) {
-        const ok = await page.evaluate((label) => {
-            const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-            const target = norm(label);
-            const candidates = Array.from(document.querySelectorAll('dialog button, dialog a, dialog li, [role="dialog"] button, [role="dialog"] a, [role="dialog"] li, .categoryselector button, .categoryselector a, .categoryselector li'));
-            const m = candidates.find(el => norm(el.textContent) === target);
-            if (m) { m.click(); return true; }
-            const all = Array.from(document.querySelectorAll('button, a, li, span'));
-            const m2 = all.find(el => norm(el.textContent) === target && el.offsetParent !== null);
-            if (m2) { m2.click(); return true; }
-            return false;
-        }, part);
+        const ok = await findAndClick(part);
         if (!ok) { log(`[category] failed to click segment: ${part}`); return false; }
+        // Wait for the new level / page to start loading the next list.
         await wait(400);
     }
 
+    // Some pickers auto-confirm when the leaf is clicked; if a confirm button is visible, click it.
     await page.evaluate(() => {
         const btns = Array.from(document.querySelectorAll('button'));
-        const b = btns.find(el => /(bestätigen|übernehmen|fertig|ok)/i.test(el.textContent || '') && el.offsetParent !== null);
+        const b = btns.find(el => /(bestätigen|übernehmen|fertig|ok)/i.test(el.textContent || '') && (el.offsetParent || el.getClientRects().length));
         if (b) b.click();
     });
     await wait(400);
