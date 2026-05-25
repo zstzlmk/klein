@@ -536,7 +536,8 @@ async function selectComboboxOption(page, btnSel, text) {
     } catch (e) { return false; }
 }
 
-async function runSingleItem(itemPath) {
+async function runSingleItem(itemPath, opts = {}) {
+    const submit = !!opts.submit;
     const dataPath = path.join(itemPath, 'data.json');
     if (!fs.existsSync(dataPath)) throw new Error('data.json not found in ' + itemPath);
     const adData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
@@ -837,7 +838,52 @@ async function runSingleItem(itemPath) {
                 log(`[photos] uploaded ${actual}/${expected}`);
             }
         }
+
+        if (submit) {
+            await submitAd(page, itemPath);
+        }
     } finally { await browser.disconnect(); }
+}
+
+const POST_FORM_URL = 'https://www.kleinanzeigen.de/p-anzeige-aufgeben-schritt2.html';
+
+// Click "Anzeige aufgeben", wait for the page to navigate away from the form,
+// then bring the page back to the form so the next item starts fresh.
+async function submitAd(page, itemPath) {
+    log('[submit] clicking Anzeige aufgeben');
+    const clicked = await page.evaluate(() => {
+        const btn = Array.from(document.querySelectorAll('button'))
+            .find(b => /^anzeige aufgeben$/i.test((b.textContent || '').trim()));
+        if (!btn) return false;
+        btn.scrollIntoView({ block: 'center' });
+        btn.click();
+        return true;
+    });
+    if (!clicked) throw new Error('submit button "Anzeige aufgeben" not found');
+
+    // Wait up to 60s for the page URL to leave the post-ad form. If it stays
+    // on the form with a validation error, throw so the batch can stop.
+    const startUrl = page.url();
+    let landed = null;
+    for (let i = 0; i < 120; i++) {
+        await wait(500);
+        const url = page.url();
+        if (!url.includes('p-anzeige-aufgeben-schritt2')) { landed = url; break; }
+    }
+    if (!landed) {
+        // Still on the form. Try to capture the error message for diagnostics.
+        const err = await page.evaluate(() => {
+            const al = document.querySelector('[role="alert"], .error, .text-critical, [class*="error"]');
+            return al ? (al.textContent || '').trim().slice(0, 300) : null;
+        });
+        throw new Error('submit did not navigate (form validation likely failed): ' + (err || 'no visible error'));
+    }
+    log(`[submit] success, landed on ${landed}`);
+
+    // Navigate back to the form for the next item.
+    await page.goto(POST_FORM_URL, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector(SELECTORS.title, { visible: true, timeout: 15000 });
+    log('[submit] form ready for next item');
 }
 
 module.exports = { runSingleItem };

@@ -234,7 +234,20 @@ await window.api.saveItem(activeItem.path,d)}
 function updBulk(){const b=document.getElementById('bulkBtn');b.textContent=`Posten (${bulkSel.size})`;b.disabled=bulkSel.size===0;document.getElementById('bulkCount').textContent=`${bulkSel.size} ausgewählt`;document.getElementById('bulkBar').className=bulkSel.size>0?'bbar vis':'bbar';document.getElementById('mp').classList.toggle('has-bbar',bulkSel.size>0)}
 function bulkSelectAll(){for(const it of items)bulkSel.add(it.path);updBulk();renderList()}
 function bulkClear(){bulkSel.clear();updBulk();renderList()}
-async function runBulk(){if(!bulkSel.size)return;await flushSave();status(`Upload von ${bulkSel.size} Anzeigen...`);document.getElementById('bulkBtn').disabled=true;const r=await window.api.runAutomation([...bulkSel]);const ok=r.filter(x=>x.success).length,fail=r.filter(x=>!x.success).length;status(`Fertig: ${ok} OK, ${fail} fehlgeschlagen`);document.getElementById('bulkBtn').disabled=false}
+async function runBulk(){
+  if(!bulkSel.size)return;
+  await flushSave();
+  const ok=await showConfirm(`${bulkSel.size} Anzeige(n) jetzt veröffentlichen?`,`Klick "Posten" und die Anzeigen werden nacheinander auf kleinanzeigen.de veröffentlicht. Erfolgreich gepostete Items werden anschließend ausgeblendet.`);
+  if(!ok)return;
+  status(`Upload von ${bulkSel.size} Anzeigen...`);
+  document.getElementById('bulkBtn').disabled=true;
+  const r=await window.api.runAutomation([...bulkSel],{submit:true});
+  const okN=r.filter(x=>x.success).length,fail=r.filter(x=>!x.success).length;
+  status(`Fertig: ${okN} gepostet, ${fail} fehlgeschlagen`);
+  bulkSel.clear();
+  await reloadItems();
+  document.getElementById('bulkBtn').disabled=false;
+}
 function populateBulkSelects(){const ships=getShips();const s0=document.getElementById('be-s0'),s1=document.getElementById('be-s1');if(!s0||!s1)return;
 const groupBuild=(placeholder)=>{const groups={SMALL:[],MEDIUM:[],LARGE:[],OTHER:[]};for(const o of ships){if(!o.v)continue;const g=(o.raw&&o.raw.packageSize)||'OTHER';groups[g].push(o)}const labels={SMALL:'Klein',MEDIUM:'Mittel',LARGE:'Groß',OTHER:'Sonstige'};const optHtml=o=>`<option value="${esc(o.v)}"${o.raw&&o.raw.description?` title="${esc(o.raw.description)}"`:''}>${esc(o.l)}</option>`;let out=`<option value="">${placeholder}</option>`;for(const g of ['SMALL','MEDIUM','LARGE','OTHER']){if(!groups[g].length)continue;out+=`<optgroup label="${labels[g]}">${groups[g].map(optHtml).join('')}</optgroup>`}return out};
 s0.innerHTML=groupBuild('Versandart 1…');s1.innerHTML=groupBuild('Versandart 2…')}
@@ -243,6 +256,7 @@ async function bulkApplyShipping(){if(!bulkSel.size)return;const s0=document.get
 async function bulkApplyBuyNow(){const v=document.getElementById('be-buynow').value;if(!bulkSel.size||!v)return;const r=await window.api.bulkUpdate([...bulkSel],{buyNow:v==='true'});await reloadItems();status(`${r.length} Anzeigen aktualisiert`)}
 async function reloadItems(){const{items:r}=await window.api.getItems();items=r;if(activeItem){const upd=items.find(x=>x.path===activeItem.path);activeItem=upd||null}renderList();if(activeItem)renderDetail(activeItem)}
 function showPrompt(title,defaultValue){return new Promise(resolve=>{const bd=document.createElement('div');bd.className='modal-bd';bd.innerHTML=`<div class="modal"><h3>${esc(title)}</h3><input id="m-input" value="${esc(defaultValue||'')}"><div class="actions"><button id="m-cancel">Abbrechen</button><button class="primary" id="m-ok">OK</button></div></div>`;document.body.appendChild(bd);const input=bd.querySelector('#m-input');setTimeout(()=>input.focus(),0);const close=v=>{document.body.removeChild(bd);resolve(v)};bd.querySelector('#m-cancel').onclick=()=>close(null);bd.querySelector('#m-ok').onclick=()=>close(input.value.trim()||null);input.onkeydown=e=>{if(e.key==='Enter')close(input.value.trim()||null);if(e.key==='Escape')close(null)};bd.onclick=e=>{if(e.target===bd)close(null)}})}
+function showConfirm(title,message){return new Promise(resolve=>{const bd=document.createElement('div');bd.className='modal-bd';bd.innerHTML=`<div class="modal"><h3>${esc(title)}</h3><p style="margin-bottom:12px;font-size:13px;color:var(--tx2);line-height:1.5">${esc(message||'')}</p><div class="actions"><button id="m-cancel">Abbrechen</button><button class="primary" id="m-ok">Posten</button></div></div>`;document.body.appendChild(bd);const close=v=>{document.body.removeChild(bd);document.removeEventListener('keydown',onKey);resolve(v)};const onKey=e=>{if(e.key==='Escape')close(false);else if(e.key==='Enter')close(true)};bd.querySelector('#m-cancel').onclick=()=>close(false);bd.querySelector('#m-ok').onclick=()=>close(true);bd.onclick=e=>{if(e.target===bd)close(false)};document.addEventListener('keydown',onKey);setTimeout(()=>bd.querySelector('#m-ok').focus(),0)})}
 async function newItem(){await flushSave();const name=await showPrompt('Name der neuen Anzeige');if(!name)return;await window.api.createItem(name);await reloadItems()}
 async function refreshShipping(){status('Aktualisiere Versand-Preise…');const r=await window.api.refreshShipping();if(!r.ok){status('Fehler: '+r.error);return}const data=await window.api.getShippingOptions();setShips(data);populateBulkSelects();if(activeItem)renderDetail(activeItem);status(`Versand-Preise aktualisiert (${r.count} Optionen)`)}
 async function changeFolder(){await flushSave();const f=await window.api.selectFolder();if(f){activeItem=null;await reloadItems();document.getElementById('mp').className='main empty';document.getElementById('mp').innerHTML='<span>Wähle ein Item</span>'}}

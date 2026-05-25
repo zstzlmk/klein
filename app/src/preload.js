@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld('api', {
     getThumbnail: (filePath) => ipcRenderer.invoke('get-thumbnail', { filePath }),
     addPhotos: (itemPath) => ipcRenderer.invoke('add-photos', { itemPath }),
     removePhoto: (itemPath, filename) => ipcRenderer.invoke('remove-photo', { itemPath, filename }),
-    runAutomation: (itemPaths) => ipcRenderer.invoke('run-automation', { itemPaths }),
+    runAutomation: (itemPaths, opts) => ipcRenderer.invoke('run-automation', { itemPaths, ...(opts || {}) }),
     selectFolder: () => ipcRenderer.invoke('select-folder'),
     createItem: (name) => ipcRenderer.invoke('create-item', { name }),
     bulkUpdate: (itemPaths, patch) => ipcRenderer.invoke('bulk-update', { itemPaths, patch }),

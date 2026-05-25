@@ -57,6 +57,7 @@ function loadItems(folder) {
             } else { ordered = imgs.sort(); }
             return { name: d.name, path: p, data, images: ordered };
         })
+        .filter(i => !i.data.posted) // hide already-posted items
         .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -108,7 +109,7 @@ ipcMain.handle('remove-photo', (_, { itemPath, filename }) => {
 });
 
 let automationRunning = false;
-ipcMain.handle('run-automation', async (event, { itemPaths }) => {
+ipcMain.handle('run-automation', async (event, { itemPaths, submit }) => {
     if (automationRunning) return [{ success: false, error: 'Bereits ein Automation-Lauf aktiv' }];
     if (!(await isDebugChromeRunning())) return (itemPaths || []).map(p => ({ itemPath: p, success: false, error: 'Chrome nicht verbunden. Erst 🌐 klicken.' }));
     automationRunning = true;
@@ -120,12 +121,25 @@ ipcMain.handle('run-automation', async (event, { itemPaths }) => {
             const p = itemPaths[i];
             try { event.sender.send('automation-progress', { index: i, total, itemPath: p, phase: 'start' }); } catch (e) {}
             try {
-                await runSingleItem(p);
+                await runSingleItem(p, { submit: !!submit });
                 results.push({ itemPath: p, success: true });
+                if (submit) {
+                    // Mark item as posted so it doesn't show up in the editor next time.
+                    try {
+                        const dp = path.join(p, 'data.json');
+                        const data = JSON.parse(fs.readFileSync(dp, 'utf-8'));
+                        data.posted = new Date().toISOString();
+                        saveItem(p, data);
+                    } catch (e) { /* ignore */ }
+                }
                 try { event.sender.send('automation-progress', { index: i, total, itemPath: p, phase: 'done', success: true }); } catch (e) {}
             } catch (e) {
                 results.push({ itemPath: p, success: false, error: e.message });
                 try { event.sender.send('automation-progress', { index: i, total, itemPath: p, phase: 'done', success: false, error: e.message }); } catch (e2) {}
+                // If we were actually submitting and one fails, stop the batch
+                // rather than charging ahead — likely the page is in a broken
+                // state and subsequent items would fail too.
+                if (submit) break;
             }
         }
         return results;
