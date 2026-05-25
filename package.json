@@ -25,10 +25,6 @@
       "app/**/*",
       "package.json"
     ],
-    "extraResources": [
-      "app/categories.json",
-      "app/shipping-options.json"
-    ],
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "app/assets/AppIcon.icns",
