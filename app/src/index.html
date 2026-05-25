@@ -12,6 +12,7 @@ button,input,textarea,select,a{-webkit-app-region:no-drag}
 .side{width:260px;min-width:260px;background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column}
 .side-hdr{padding:48px 16px 12px;border-bottom:1px solid var(--bd);display:flex;gap:8px}
 .side-hdr button{flex:1;padding:6px 10px;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;color:var(--tx);cursor:pointer;font-size:12px}
+.side-hdr button.plus{font-size:18px;font-weight:300;line-height:1;color:var(--tx)}
 .side-hdr button:hover{background:var(--bd)}
 .side-hdr button.chrome-on{border-color:var(--ac);color:var(--ac)}
 .list{flex:1;overflow-y:auto;padding:8px}
@@ -73,7 +74,7 @@ button,input,textarea,select,a{-webkit-app-region:no-drag}
 <body>
 <div class="drag"></div>
 <div class="side">
-    <div class="side-hdr"><button onclick="newItem()" title="Neue Anzeige">➕</button><button id="chromeBtn" onclick="launchChrome()" title="Chrome mit Debug-Port starten">🌐</button><button onclick="refreshShipping()" title="Versand-Preise aktualisieren">🔄</button><button onclick="changeFolder()" title="Ordner wechseln">📁</button></div>
+    <div class="side-hdr"><button onclick="newItem()" class="plus" title="Neue Anzeige">+</button><button id="chromeBtn" onclick="launchChrome()" title="Chrome mit Debug-Port starten">🌐</button><button onclick="refreshShipping()" title="Versand-Preise aktualisieren">🔄</button><button onclick="changeFolder()" title="Ordner wechseln">📁</button></div>
     <div class="list" id="itemList"></div>
 </div>
 <div class="main empty" id="mp"><span>Wähle ein Item aus der Liste</span></div>
