@@ -1,11 +1,14 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
+const { app } = require('electron');
 
 const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.heic'];
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
-const LOG_PATH = path.join(__dirname, '..', '..', 'automation.log');
+// Writable user data dir for logs and overrides.
+const USER_DATA_DIR = app.getPath('userData');
+const LOG_PATH = path.join(USER_DATA_DIR, 'automation.log');
 const LOG_MAX_BYTES = 1024 * 1024; // 1 MB
 function log(msg) {
     const line = `[${new Date().toISOString()}] ${msg}\n`;
@@ -28,7 +31,10 @@ const SELECTORS = {
     addressVisibility: '#ad-address-visibility', photoUploadInput: 'input[type="file"][accept*="image"]',
 };
 
-const SHIPPING_PATH = path.join(__dirname, '..', 'shipping-options.json');
+// Read shipping options from userData if the user has refreshed it, else from the bundled defaults.
+const SHIPPING_BUNDLED = path.join(__dirname, '..', 'shipping-options.json');
+const SHIPPING_USER = path.join(USER_DATA_DIR, 'shipping-options.json');
+function shippingFile() { return fs.existsSync(SHIPPING_USER) ? SHIPPING_USER : SHIPPING_BUNDLED; }
 const SIZE_RANK = { SMALL: 0, MEDIUM: 1, LARGE: 2 };
 
 // Build a { carrierId: packageSize } map from the scraped shipping-options.json.
@@ -37,7 +43,7 @@ const SIZE_RANK = { SMALL: 0, MEDIUM: 1, LARGE: 2 };
 // gracefully skip the size step instead of guessing.
 function loadShippingSizeMap() {
     try {
-        const data = JSON.parse(fs.readFileSync(SHIPPING_PATH, 'utf-8'));
+        const data = JSON.parse(fs.readFileSync(shippingFile(), 'utf-8'));
         const map = {};
         for (const opt of data.options || []) {
             if (opt.id && opt.packageSize) map[opt.id] = opt.packageSize;

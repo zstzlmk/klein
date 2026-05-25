@@ -4,21 +4,36 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { execFileSync, spawn } = require('child_process');
 
+// Where the source files live.
+//   Dev (npm start):     APP_ROOT = .../app, USER_DATA_DIR = ~/Library/Application Support/Electron
+//   Packaged (.app):     APP_ROOT = .../Resources/app.asar/app (read-only), USER_DATA_DIR = ~/Library/Application Support/Kleinanzeigen Upload
 const APP_ROOT = path.join(__dirname, '..');
-const PROJECT_ROOT = path.join(APP_ROOT, '..');
-const CONFIG_PATH = path.join(PROJECT_ROOT, 'config.json');
+const USER_DATA_DIR = app.getPath('userData');
+fs.mkdirSync(USER_DATA_DIR, { recursive: true });
+
+// Read-only assets that ship with the app.
 const CATEGORIES_PATH = path.join(APP_ROOT, 'categories.json');
-const SHIPPING_PATH = path.join(APP_ROOT, 'shipping-options.json');
 const ICON_PATH = path.join(APP_ROOT, 'assets', 'icon.png');
-const THUMB_DIR = path.join(PROJECT_ROOT, '.thumbs');
+
+// Bundled defaults that the user can refresh — we read the user copy if present, else fall back to bundled.
+const SHIPPING_BUNDLED = path.join(APP_ROOT, 'shipping-options.json');
+const SHIPPING_USER = path.join(USER_DATA_DIR, 'shipping-options.json');
+function shippingPath(forWrite) { return forWrite ? SHIPPING_USER : (fs.existsSync(SHIPPING_USER) ? SHIPPING_USER : SHIPPING_BUNDLED); }
+
+// User-writable state.
+const CONFIG_PATH = path.join(USER_DATA_DIR, 'config.json');
+// Thumbnails live next to the user's photo project; that folder is always writable since the user picked it.
+function thumbDir(projectFolder) { return path.join(projectFolder, '.thumbs'); }
 const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.heic'];
 
 function thumbPath(filePath) {
     const ext = path.extname(filePath).toLowerCase();
     if (ext !== '.heic') return filePath;
-    if (!fs.existsSync(THUMB_DIR)) fs.mkdirSync(THUMB_DIR, { recursive: true });
+    // Cache thumbs in userData so we don't write into the user's photo folder.
+    const cache = path.join(USER_DATA_DIR, 'thumbs');
+    if (!fs.existsSync(cache)) fs.mkdirSync(cache, { recursive: true });
     const hash = crypto.createHash('md5').update(filePath).digest('hex');
-    const out = path.join(THUMB_DIR, hash + '.jpg');
+    const out = path.join(cache, hash + '.jpg');
     if (!fs.existsSync(out)) {
         try {
             // execFileSync (no shell) — paths with quotes/spaces/backticks are safe.
@@ -209,14 +224,14 @@ ipcMain.handle('bulk-update', (_, { itemPaths, patch }) => {
 });
 
 ipcMain.handle('get-shipping-options', () => {
-    try { return JSON.parse(fs.readFileSync(SHIPPING_PATH, 'utf-8')); }
+    try { return JSON.parse(fs.readFileSync(shippingPath(false), 'utf-8')); }
     catch (e) { return null; }
 });
 
 ipcMain.handle('refresh-shipping', async () => {
     if (!(await isDebugChromeRunning())) return { ok: false, error: 'Chrome nicht verbunden. Erst 🌐 klicken.' };
     try {
-        const puppeteer = require(path.join(APP_ROOT, '..', 'node_modules', 'puppeteer'));
+        const puppeteer = require('puppeteer');
         const r = await fetch(`http://127.0.0.1:${CHROME_DEBUG_PORT}/json/version`);
         const d = await r.json();
         const browser = await puppeteer.connect({ browserWSEndpoint: d.webSocketDebuggerUrl, defaultViewport: null });
@@ -245,7 +260,7 @@ ipcMain.handle('refresh-shipping', async () => {
                 return plp && plp.availableShippingOptions ? plp.availableShippingOptions : null;
             });
             if (!data) return { ok: false, error: 'Konnte Versand-Daten nicht lesen.' };
-            fs.writeFileSync(SHIPPING_PATH, JSON.stringify(data, null, 2));
+            fs.writeFileSync(shippingPath(true), JSON.stringify(data, null, 2));
             return { ok: true, count: (data.options || []).length };
         } finally { await browser.disconnect(); }
     } catch (e) { return { ok: false, error: e.message }; }

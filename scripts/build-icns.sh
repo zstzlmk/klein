@@ -1,32 +1,25 @@
-#!/usr/bin/env bash
-# Build AppIcon.icns from app/assets/icon.png (1024x1024 PNG).
-set -euo pipefail
+#!/bin/bash
+# Build app/assets/AppIcon.icns from app/assets/icon.png (must be 1024x1024).
+set -e
+SRC="app/assets/icon.png"
+ICONSET="app/assets/AppIcon.iconset"
+OUT="app/assets/AppIcon.icns"
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SRC="$ROOT/app/assets/icon.png"
-OUT_ICNS="$ROOT/Kleinanzeigen Upload.app/Contents/Resources/AppIcon.icns"
-ICONSET="$ROOT/scripts/AppIcon.iconset"
+if [ ! -f "$SRC" ]; then echo "missing $SRC"; exit 1; fi
 
 rm -rf "$ICONSET"
 mkdir -p "$ICONSET"
+for sz in 16 32 64 128 256 512 1024; do
+    sips -z $sz $sz "$SRC" --out "$ICONSET/icon_${sz}x${sz}.png" >/dev/null
+done
+# @2x variants
+cp "$ICONSET/icon_32x32.png"   "$ICONSET/icon_16x16@2x.png"
+cp "$ICONSET/icon_64x64.png"   "$ICONSET/icon_32x32@2x.png"
+cp "$ICONSET/icon_256x256.png" "$ICONSET/icon_128x128@2x.png"
+cp "$ICONSET/icon_512x512.png" "$ICONSET/icon_256x256@2x.png"
+cp "$ICONSET/icon_1024x1024.png" "$ICONSET/icon_512x512@2x.png"
+rm "$ICONSET/icon_64x64.png" "$ICONSET/icon_1024x1024.png"
 
-gen() {
-  local size="$1"
-  local name="$2"
-  sips -z "$size" "$size" "$SRC" --out "$ICONSET/$name" >/dev/null
-}
-
-gen 16    icon_16x16.png
-gen 32    icon_16x16@2x.png
-gen 32    icon_32x32.png
-gen 64    icon_32x32@2x.png
-gen 128   icon_128x128.png
-gen 256   icon_128x128@2x.png
-gen 256   icon_256x256.png
-gen 512   icon_256x256@2x.png
-gen 512   icon_512x512.png
-gen 1024  icon_512x512@2x.png
-
-iconutil -c icns "$ICONSET" -o "$OUT_ICNS"
+iconutil -c icns "$ICONSET" -o "$OUT"
 rm -rf "$ICONSET"
-echo "wrote $OUT_ICNS"
+echo "wrote $OUT"

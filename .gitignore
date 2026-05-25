@@ -3,6 +3,9 @@ node_modules/
 .thumbs/
 chrome-dev-session/
 app/assets/icon.original.png
+app/assets/AppIcon.icns
+app/assets/AppIcon.iconset/
 scripts/AppIcon.iconset/
 automation.log
 automation.log.old
+dist/

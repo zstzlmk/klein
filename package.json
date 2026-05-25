@@ -5,12 +5,45 @@
   "scripts": {
     "start": "electron .",
     "cli": "node app/src/cli.js",
-    "scrape": "node app/src/scrape-categories.js"
+    "scrape": "node app/src/scrape-categories.js",
+    "icns": "bash scripts/build-icns.sh",
+    "build": "npm run icns && electron-builder --mac --dir",
+    "dist": "npm run icns && electron-builder --mac"
   },
   "dependencies": {
     "puppeteer": "^24.23.0"
   },
   "devDependencies": {
-    "electron": "^33.4.11"
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.max.kleinanzeigen-upload",
+    "productName": "Kleinanzeigen Upload",
+    "asar": true,
+    "files": [
+      "app/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      "app/categories.json",
+      "app/shipping-options.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "app/assets/AppIcon.icns",
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "identity": null
+    },
+    "directories": {
+      "output": "dist"
+    }
   }
 }
