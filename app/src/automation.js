@@ -103,12 +103,17 @@ function normalizeCategoryLabel(s) {
 async function selectCategory(page, categoryPath) {
     const want = normalizeCategoryLabel(categoryPath);
     const wantLeaf = want.split('>').pop().trim();
+    // The first 2 levels are the actual Kleinanzeigen category; the 3rd level
+    // is an `art_s` attribute that we set later via fillAttribute. So any
+    // autosuggest matching the first 2 levels is acceptable — the leaf will
+    // be corrected via attributeMap when we fill the form.
+    const wantTrunk = want.split('>').slice(0, 2).map(s => s.trim()).join(' > ');
 
     // 1. Wait briefly for suggestions to appear (they animate in after typing).
     let suggestion = null;
     let sawSuggestions = false;
     for (let i = 0; i < 24; i++) {
-        suggestion = await page.evaluate((want, wantLeaf) => {
+        suggestion = await page.evaluate((want, wantLeaf, wantTrunk) => {
             const norm = (s) => String(s || '').replace(/[→›>»]/g, '>').replace(/\s+/g, ' ').trim().toLowerCase();
             const radios = Array.from(document.querySelectorAll('input[type="radio"]'));
             // Collect all category-style labels first.
@@ -122,7 +127,14 @@ async function selectCategory(page, categoryPath) {
             for (const c of cats) {
                 if (c.text === want) { c.r.click(); return { matched: 'full', text: c.text }; }
             }
-            // 1b. Otherwise, only accept a leaf match if the leaf is unique among
+            // 1b. Same trunk (parent > sub) — leaf differs but the underlying category id is identical.
+            //     The leaf is set later via the art_s attribute, so this is safe.
+            const trunkMatches = cats.filter(c => c.text.split('>').slice(0, 2).map(s => s.trim()).join(' > ') === wantTrunk);
+            if (trunkMatches.length === 1) {
+                trunkMatches[0].r.click();
+                return { matched: 'trunk', text: trunkMatches[0].text };
+            }
+            // 1c. Otherwise, only accept a leaf match if the leaf is unique among
             //     the suggestions (otherwise we'd risk picking the wrong gender/branch).
             const leafMatches = cats.filter(c => c.text.split('>').pop().trim() === wantLeaf);
             if (leafMatches.length === 1) {
@@ -130,7 +142,7 @@ async function selectCategory(page, categoryPath) {
                 return { matched: 'leaf', text: leafMatches[0].text };
             }
             return { matched: false, count: cats.length, all: cats.map(c => c.text) };
-        }, want, wantLeaf);
+        }, want, wantLeaf, wantTrunk);
         if (suggestion && suggestion.matched) {
             log(`[category] suggestion matched (${suggestion.matched}): ${suggestion.text}`);
             await wait(300); return true;
@@ -173,20 +185,28 @@ async function selectCategory(page, categoryPath) {
                 //   1. exact text match
                 //   2. text starts with target (e.g. "Herrenbekleidung (1234)")
                 //   3. text contains target as a whole word
-                const matchEl = (el, text) => {
+                const scoreText = (text) => {
                     if (text === target) return 3;
                     if (text.startsWith(target + ' ') || text.startsWith(target + '(')) return 2;
                     if (new RegExp('(^|[^a-zäöüß])' + target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^a-zäöüß])').test(text)) return 1;
                     return 0;
                 };
+                // Prefer real navigation elements (<a>, <button>) over <li> wrappers,
+                // since <li> often just contains the <a> and clicking the <li> is a no-op.
+                const tagPriority = (tag) => ({ a: 3, button: 2, li: 1 }[tag] || 0);
                 const scopedSel = 'dialog a, dialog button, dialog li, [role="dialog"] a, [role="dialog"] button, [role="dialog"] li, .categoryselector a, .categoryselector button, .categoryselector li';
                 const fallbackSel = 'a, button, li';
                 const findBest = (sel) => {
-                    let best = null, bestScore = 0;
+                    let best = null, bestKey = [-1, -1];
                     for (const el of document.querySelectorAll(sel)) {
                         if (!visible(el)) continue;
-                        const score = matchEl(el, norm(el.textContent));
-                        if (score > bestScore) { best = el; bestScore = score; }
+                        const score = scoreText(norm(el.textContent));
+                        if (score === 0) continue;
+                        const tagScore = tagPriority(el.tagName.toLowerCase());
+                        const key = [score, tagScore];
+                        if (key[0] > bestKey[0] || (key[0] === bestKey[0] && key[1] > bestKey[1])) {
+                            best = el; bestKey = key;
+                        }
                     }
                     return best;
                 };
@@ -194,9 +214,12 @@ async function selectCategory(page, categoryPath) {
                 if (!m) return false;
                 m.scrollIntoView({ block: 'center' });
                 m.click();
-                return true;
+                return { tag: m.tagName.toLowerCase(), text: norm(m.textContent), href: m.getAttribute && m.getAttribute('href') || null };
             }, label);
-            if (ok) return true;
+            if (ok) {
+                log(`[category] picker clicked ${ok.tag}="${ok.text}"${ok.href ? ' href=' + ok.href : ''}`);
+                return true;
+            }
             await wait(250);
         }
         return false;
@@ -225,8 +248,11 @@ async function selectCategory(page, categoryPath) {
             } catch (e) { /* ignore */ }
             return false;
         }
-        // Wait for the new level / page to start loading the next list.
-        await wait(400);
+        // Wait for either a navigation or DOM update before searching the next level.
+        try {
+            await page.waitForNavigation({ timeout: 4000, waitUntil: 'domcontentloaded' });
+        } catch (e) { /* no navigation, that's fine — could be a SPA update */ }
+        await wait(300);
     }
 
     // Some pickers auto-confirm when the leaf is clicked; if a confirm button is visible, click it.
