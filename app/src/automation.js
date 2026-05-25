@@ -255,13 +255,32 @@ async function selectCategory(page, categoryPath) {
         await wait(300);
     }
 
-    // Some pickers auto-confirm when the leaf is clicked; if a confirm button is visible, click it.
-    await page.evaluate(() => {
+    // Confirm the leaf selection. The picker uses "Weiter" on the multi-column
+    // page, or "Bestätigen"/"Fertig" in older dialog variants. Clicking it
+    // navigates back to the post-ad form.
+    const confirmed = await page.evaluate(() => {
         const btns = Array.from(document.querySelectorAll('button'));
-        const b = btns.find(el => /(bestätigen|übernehmen|fertig|ok)/i.test(el.textContent || '') && (el.offsetParent || el.getClientRects().length));
-        if (b) b.click();
+        const b = btns.find(el => /^(weiter|bestätigen|übernehmen|fertig|ok)$/i.test((el.textContent || '').trim()) && (el.offsetParent || el.getClientRects().length) && !el.disabled);
+        if (b) { b.click(); return true; }
+        return false;
     });
-    await wait(400);
+    if (!confirmed) {
+        log('[category] picker: confirm button not found');
+        return false;
+    }
+    log('[category] picker: clicked confirm, waiting for navigation back to form');
+    // Wait for the picker page to navigate away (back to the post-ad form).
+    try {
+        await page.waitForFunction(
+            () => !location.pathname.includes('p-kategorie-aendern'),
+            { timeout: 10000 }
+        );
+    } catch (e) {
+        log('[category] picker: never navigated away from p-kategorie-aendern');
+        return false;
+    }
+    await page.waitForSelector('#ad-title', { visible: true, timeout: 10000 });
+    log('[category] picker: back on form');
     return true;
 }
 
