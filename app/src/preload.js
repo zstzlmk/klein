@@ -10,4 +10,14 @@ contextBridge.exposeInMainWorld('api', {
     runAutomation: (itemPaths) => ipcRenderer.invoke('run-automation', { itemPaths }),
     selectFolder: () => ipcRenderer.invoke('select-folder'),
     createItem: (name) => ipcRenderer.invoke('create-item', { name }),
+    bulkUpdate: (itemPaths, patch) => ipcRenderer.invoke('bulk-update', { itemPaths, patch }),
+    getShippingOptions: () => ipcRenderer.invoke('get-shipping-options'),
+    refreshShipping: () => ipcRenderer.invoke('refresh-shipping'),
+    chromeStatus: () => ipcRenderer.invoke('chrome-status'),
+    launchChrome: () => ipcRenderer.invoke('launch-chrome'),
+    onAutomationProgress: (cb) => {
+        const handler = (_, data) => cb(data);
+        ipcRenderer.on('automation-progress', handler);
+        return () => ipcRenderer.removeListener('automation-progress', handler);
+    },
 });

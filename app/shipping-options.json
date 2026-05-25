@@ -1,0 +1,132 @@
+{
+  "sizeGroups": [
+    {
+      "id": "SMALL",
+      "name": "Klein",
+      "description": "z.B. Smartphone, T-Shirt ...",
+      "packageSize": "SMALL"
+    },
+    {
+      "id": "MEDIUM",
+      "name": "Mittel",
+      "description": "z.B. Schuhe, Spielekonsole ...",
+      "packageSize": "MEDIUM"
+    },
+    {
+      "id": "LARGE",
+      "name": "Groß",
+      "description": "z.B. Kleinmöbel ...",
+      "packageSize": "LARGE"
+    }
+  ],
+  "options": [
+    {
+      "id": "HERMES_001",
+      "name": "Päckchen",
+      "description": "Längste und kürzeste Seite zusammen max. 37 cm, max. 25 kg",
+      "carrierId": "HERMES",
+      "carrierName": "Hermes",
+      "packageSize": "SMALL",
+      "priceInEuroCent": 199,
+      "liabilityLimitInEuroCent": 5000,
+      "tracking": true,
+      "oldPriceInEuroCent": 519
+    },
+    {
+      "id": "HERMES_002",
+      "name": "S-Paket",
+      "description": "Längste und kürzeste Seite zusammen max. 50 cm, max. 25 kg",
+      "carrierId": "HERMES",
+      "carrierName": "Hermes",
+      "packageSize": "SMALL",
+      "priceInEuroCent": 249,
+      "liabilityLimitInEuroCent": 50000,
+      "tracking": true,
+      "oldPriceInEuroCent": 579
+    },
+    {
+      "id": "HERMES_003",
+      "name": "M-Paket",
+      "description": "Längste und kürzeste Seite zusammen max. 80 cm, max. 25 kg",
+      "carrierId": "HERMES",
+      "carrierName": "Hermes",
+      "packageSize": "MEDIUM",
+      "priceInEuroCent": 299,
+      "liabilityLimitInEuroCent": 50000,
+      "tracking": true,
+      "oldPriceInEuroCent": 699
+    },
+    {
+      "id": "HERMES_004",
+      "name": "L-Paket",
+      "description": "Längste und kürzeste Seite zusammen max. 120 cm, max. 25 kg",
+      "carrierId": "HERMES",
+      "carrierName": "Hermes",
+      "packageSize": "LARGE",
+      "priceInEuroCent": 1099,
+      "liabilityLimitInEuroCent": 50000,
+      "tracking": true,
+      "oldPriceInEuroCent": null
+    },
+    {
+      "id": "DHL_001",
+      "name": "Paket 2 kg",
+      "description": "Max. 2 kg, max. 60 x 30 x 15 cm",
+      "carrierId": "DHL",
+      "carrierName": "DHL",
+      "packageSize": "SMALL",
+      "priceInEuroCent": 619,
+      "liabilityLimitInEuroCent": 50000,
+      "tracking": true,
+      "oldPriceInEuroCent": null
+    },
+    {
+      "id": "DHL_002",
+      "name": "Paket 5 kg",
+      "description": "Max. 5 kg, max. 120 x 60 x 60 cm",
+      "carrierId": "DHL",
+      "carrierName": "DHL",
+      "packageSize": "MEDIUM",
+      "priceInEuroCent": 769,
+      "liabilityLimitInEuroCent": 50000,
+      "tracking": true,
+      "oldPriceInEuroCent": null
+    },
+    {
+      "id": "DHL_003",
+      "name": "Paket 10 kg",
+      "description": "Max. 10 kg, max. 120 x 60 x 60 cm",
+      "carrierId": "DHL",
+      "carrierName": "DHL",
+      "packageSize": "LARGE",
+      "priceInEuroCent": 1049,
+      "liabilityLimitInEuroCent": 50000,
+      "tracking": true,
+      "oldPriceInEuroCent": null
+    },
+    {
+      "id": "DHL_005",
+      "name": "Paket 20 kg",
+      "description": "Max. 20 kg, max. 120 x 60 x 60 cm",
+      "carrierId": "DHL",
+      "carrierName": "DHL",
+      "packageSize": "LARGE",
+      "priceInEuroCent": 1899,
+      "liabilityLimitInEuroCent": 50000,
+      "tracking": true,
+      "oldPriceInEuroCent": null
+    },
+    {
+      "id": "DHL_004",
+      "name": "Paket 31,5 kg",
+      "description": "Max. 31,5 kg, max. 120 x 60 x 60 cm",
+      "carrierId": "DHL",
+      "carrierName": "DHL",
+      "packageSize": "LARGE",
+      "priceInEuroCent": 2399,
+      "liabilityLimitInEuroCent": 50000,
+      "tracking": true,
+      "oldPriceInEuroCent": null
+    }
+  ]
+}
