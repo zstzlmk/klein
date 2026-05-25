@@ -278,27 +278,43 @@ async function selectShippingSize(page, targetSize, wantedCarrierIds) {
     if (!view3) { log('[shipping] view 3 (carriers) never appeared'); return false; }
     log(`[shipping] view 3: ${JSON.stringify(view3)}`);
 
-    const ticked = await page.evaluate((wanted) => {
-        const d = Array.from(document.querySelectorAll('dialog')).filter(x => /Versandmethoden/i.test(x.querySelector('h2')?.textContent || '')).find(x => x.getBoundingClientRect().width > 0);
-        if (!d) return { ok: false, ticked: 0 };
-        const checks = Array.from(d.querySelectorAll('input[type="checkbox"]'));
-        let count = 0;
-        for (const cb of checks) {
-            const v = cb.value || '';
-            if (!/^[A-Z]+_\d+$/.test(v)) continue;
-            const want = wanted.includes(v);
-            if (cb.checked !== want) {
-                // Look up label by attribute (ids contain ":" which breaks CSS selectors).
-                const lbl = Array.from(d.querySelectorAll('label')).find(l => l.getAttribute('for') === cb.id);
-                const wrapper = cb.closest('[role="group"], div[class*="rounded-medium"]');
-                (lbl || wrapper || cb).click();
-            }
-            if (want) count++;
+    // Tick wanted carriers, untick the rest. Done one click at a time, with
+    // re-querying between clicks, because each click may trigger a React
+    // re-render that invalidates previously captured element references.
+    const carrierIds = view3.carriers;
+    let ticked = 0;
+    for (const id of carrierIds) {
+        const want = wantedCarrierIds.includes(id);
+        // Re-query state for this specific checkbox each time.
+        const action = await page.evaluate((id) => {
+            const d = Array.from(document.querySelectorAll('dialog')).filter(x => /Versandmethoden/i.test(x.querySelector('h2')?.textContent || '')).find(x => x.getBoundingClientRect().width > 0);
+            const cb = d?.querySelector(`input[type="checkbox"][value="${id}"]`);
+            if (!cb) return { found: false };
+            return { found: true, checked: cb.checked, cbId: cb.id };
+        }, id);
+        if (!action.found) {
+            log(`[shipping] carrier ${id} not in dialog`);
+            continue;
         }
-        return { ok: count > 0, ticked: count };
-    }, wantedCarrierIds);
-    log(`[shipping] ticked: ${JSON.stringify(ticked)}`);
-    if (!ticked.ok) { log('[shipping] no wanted carriers found in view 3'); return false; }
+        if (action.checked === want) {
+            if (want) ticked++;
+            continue;
+        }
+        // Click the label (real ID lookup, not CSS selector — IDs contain ":")
+        const clicked = await page.evaluate((id) => {
+            const d = Array.from(document.querySelectorAll('dialog')).filter(x => /Versandmethoden/i.test(x.querySelector('h2')?.textContent || '')).find(x => x.getBoundingClientRect().width > 0);
+            const cb = d?.querySelector(`input[type="checkbox"][value="${id}"]`);
+            if (!cb) return false;
+            const lbl = Array.from(d.querySelectorAll('label')).find(l => l.getAttribute('for') === cb.id);
+            (lbl || cb).click();
+            return true;
+        }, id);
+        if (!clicked) continue;
+        await wait(150);
+        if (want) ticked++;
+    }
+    log(`[shipping] ticked carriers: ${ticked}/${wantedCarrierIds.length}`);
+    if (ticked === 0) { log('[shipping] no wanted carriers ticked'); return false; }
 
     // Wait for at least one carrier checkbox to be checked, then click Fertig.
     for (let i = 0; i < 15; i++) {

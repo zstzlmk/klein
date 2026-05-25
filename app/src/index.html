@@ -109,7 +109,7 @@ function setShips(scraped){
   for(const o of scraped.options){
     const price=fmtCent(o.priceInEuroCent);
     const old=o.oldPriceInEuroCent?` (vorher ${fmtCent(o.oldPriceInEuroCent)})`:'';
-    opts.push({v:o.id,l:`${o.carrierName} ${o.name} — ${price}${old}`});
+    opts.push({v:o.id,l:`${o.carrierName} ${o.name} — ${price}${old}`,raw:o});
   }
   SHIPS=opts;
 }
@@ -122,7 +122,19 @@ function parseCatPath(p){if(!p)return{parent:'',sub:'',leaf:''};const ps=p.split
 function migrateLegacyPath(d){const{parent,sub,leaf}=parseCatPath(d.categoryPath||'');if(leaf||!parent||!sub)return false;const subs=getSubcategories(parent);const subObj=subs.find(s=>s.name===sub);if(!subObj||!subObj.children||!subObj.children.length)return false;const artKey=d.dynamicFields&&Object.keys(d.dynamicFields).find(k=>/\.art_s$/.test(k));const artVal=artKey?d.dynamicFields[artKey]:null;if(!artVal)return false;const leafObj=subObj.children.find(c=>c.fieldValue===artVal);if(leafObj){d.categoryPath=`${parent} > ${sub} > ${leafObj.name}`;return true}return false}
 const PT=[{v:'FIXED',l:'Festpreis'},{v:'NEGOTIABLE',l:'VB'},{v:'GIVE_AWAY',l:'Zu verschenken'}];
 const CONDS=[{v:'',l:'— Nicht gesetzt —'},{v:'new_with_tag',l:'Neu mit Etikett'},{v:'new',l:'Neu'},{v:'like_new',l:'Sehr Gut'},{v:'ok',l:'Gut'},{v:'alright',l:'In Ordnung'}];
-function sel(id,opts,cur){return`<select id="${id}">${opts.map(o=>`<option value="${esc(o.v)}"${o.v===cur?' selected':''}>${esc(o.l)}</option>`).join('')}</select>`}
+function sel(id,opts,cur){return`<select id="${id}">${opts.map(o=>`<option value="${esc(o.v)}"${o.v===cur?' selected':''}${o.title?` title="${esc(o.title)}"`:''}>${esc(o.l)}</option>`).join('')}</select>`}
+// Shipping-specific select with optgroups by package size and description tooltips.
+function shipSel(id,opts,cur){
+  const empty=opts.find(o=>!o.v);
+  const groups={SMALL:[],MEDIUM:[],LARGE:[],OTHER:[]};
+  for(const o of opts){if(!o.v)continue;const g=(o.raw&&o.raw.packageSize)||'OTHER';groups[g].push(o)}
+  const labels={SMALL:'Klein',MEDIUM:'Mittel',LARGE:'Groß',OTHER:'Sonstige'};
+  const optHtml=o=>`<option value="${esc(o.v)}"${o.v===cur?' selected':''}${o.raw&&o.raw.description?` title="${esc(o.raw.description)}"`:''}>${esc(o.l)}</option>`;
+  let out=`<select id="${id}">`;
+  if(empty)out+=`<option value=""${cur===''?' selected':''}>${esc(empty.l)}</option>`;
+  for(const g of ['SMALL','MEDIUM','LARGE','OTHER']){if(!groups[g].length)continue;out+=`<optgroup label="${labels[g]}">${groups[g].map(optHtml).join('')}</optgroup>`}
+  out+='</select>';return out;
+}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 let saveTimer=null;function saveDebounced(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{saveTimer=null;save()},250)}
 // Force any pending debounced save to run synchronously, returning when disk write completes.
@@ -157,8 +169,13 @@ const cat3=document.getElementById('f-cat3');if(cat3)cat3.onchange=()=>{save();r
 document.getElementById('f-versand').onchange=()=>{renderShipDet();save()};
 document.getElementById('f-pt').onchange=()=>{const row=document.getElementById('f-buynow-row');if(row)row.style.display=document.getElementById('f-pt').value==='FIXED'?'':'none';save()};
 mp.querySelectorAll('input:not(:disabled),textarea,select').forEach(el=>{el.addEventListener('change',saveDebounced);el.addEventListener('blur',saveDebounced)})}
-function renderShipDet(){const m=document.getElementById('f-versand')?.value;const c=document.getElementById('shipDet');if(!c)return;const d=activeItem?.data||{};const sh=d.shippingOptions||[];const ships=getShips();
-if(m==='ja'){c.innerHTML=`<div class="row" style="margin-top:8px"><div class="fld"><label>Option 1</label>${sel('f-s0',ships,sh[0]||'')}</div><div class="fld"><label>Option 2</label>${sel('f-s1',ships,sh[1]||'')}</div></div>`;c.querySelectorAll('select').forEach(el=>el.addEventListener('change',saveDebounced))}
+function carrierSize(carrierId){if(!SHIPS||!carrierId)return null;const o=SHIPS.find(x=>x.v===carrierId);if(!o||!o.raw)return null;return o.raw.packageSize||null}
+function shipsForSize(size){const ships=getShips();if(!size)return ships;return ships.filter(o=>!o.v||(o.raw&&o.raw.packageSize===size))}
+function renderShipDet(){const m=document.getElementById('f-versand')?.value;const c=document.getElementById('shipDet');if(!c)return;const d=activeItem?.data||{};const sh=d.shippingOptions||[];
+if(m==='ja'){const size0=carrierSize(sh[0]);const size1=carrierSize(sh[1]);const lockedSize=size0||size1;const opts0=shipsForSize(lockedSize);const opts1=shipsForSize(lockedSize);c.innerHTML=`<div class="row" style="margin-top:8px"><div class="fld"><label>Option 1</label>${shipSel('f-s0',opts0,sh[0]||'')}</div><div class="fld"><label>Option 2</label>${shipSel('f-s1',opts1,sh[1]||'')}</div></div>${lockedSize?`<div style="font-size:11px;color:var(--tx2);margin-top:4px">Größe: ${esc(lockedSize)} (alle Optionen müssen gleiche Größe haben)</div>`:''}`;
+const s0=document.getElementById('f-s0'),s1=document.getElementById('f-s1');
+const onChange=()=>{const v0=s0.value,v1=s1.value;const size=carrierSize(v0)||carrierSize(v1);if(size){if(v0&&carrierSize(v0)!==size)s0.value='';if(v1&&carrierSize(v1)!==size)s1.value=''}save();renderShipDet()};
+s0.addEventListener('change',onChange);s1.addEventListener('change',onChange)}
 else if(m==='custom'){c.innerHTML=`<div class="fld" style="margin-top:8px"><label>Versandkosten (€)</label><input id="f-shipcost" value="${esc(d.customShippingCost||'')}" inputmode="decimal"></div>`;const inp=c.querySelector('input');inp.addEventListener('change',saveDebounced);inp.addEventListener('blur',saveDebounced)}
 else{c.innerHTML=''}}
 function renderAttrs(item){const c=document.getElementById('dynF');if(!c)return;c.innerHTML='';const d=item.data;const cat1=document.getElementById('f-cat1')?.value;const cat2=document.getElementById('f-cat2')?.value;const cat3=document.getElementById('f-cat3')?.value;const subs=cat1?getSubcategories(cat1):[];const sub=subs.find(s=>s.name===cat2);
@@ -218,7 +235,9 @@ function updBulk(){const b=document.getElementById('bulkBtn');b.textContent=`Pos
 function bulkSelectAll(){for(const it of items)bulkSel.add(it.path);updBulk();renderList()}
 function bulkClear(){bulkSel.clear();updBulk();renderList()}
 async function runBulk(){if(!bulkSel.size)return;await flushSave();status(`Upload von ${bulkSel.size} Anzeigen...`);document.getElementById('bulkBtn').disabled=true;const r=await window.api.runAutomation([...bulkSel]);const ok=r.filter(x=>x.success).length,fail=r.filter(x=>!x.success).length;status(`Fertig: ${ok} OK, ${fail} fehlgeschlagen`);document.getElementById('bulkBtn').disabled=false}
-function populateBulkSelects(){const ships=getShips();const s0=document.getElementById('be-s0'),s1=document.getElementById('be-s1');if(!s0||!s1)return;const html=ships.map(o=>`<option value="${esc(o.v)}">${esc(o.l)}</option>`).join('');s0.innerHTML='<option value="">Versandart 1…</option>'+html;s1.innerHTML='<option value="">Versandart 2…</option>'+html}
+function populateBulkSelects(){const ships=getShips();const s0=document.getElementById('be-s0'),s1=document.getElementById('be-s1');if(!s0||!s1)return;
+const groupBuild=(placeholder)=>{const groups={SMALL:[],MEDIUM:[],LARGE:[],OTHER:[]};for(const o of ships){if(!o.v)continue;const g=(o.raw&&o.raw.packageSize)||'OTHER';groups[g].push(o)}const labels={SMALL:'Klein',MEDIUM:'Mittel',LARGE:'Groß',OTHER:'Sonstige'};const optHtml=o=>`<option value="${esc(o.v)}"${o.raw&&o.raw.description?` title="${esc(o.raw.description)}"`:''}>${esc(o.l)}</option>`;let out=`<option value="">${placeholder}</option>`;for(const g of ['SMALL','MEDIUM','LARGE','OTHER']){if(!groups[g].length)continue;out+=`<optgroup label="${labels[g]}">${groups[g].map(optHtml).join('')}</optgroup>`}return out};
+s0.innerHTML=groupBuild('Versandart 1…');s1.innerHTML=groupBuild('Versandart 2…')}
 async function bulkApplyVersand(){const v=document.getElementById('be-versand').value;if(!bulkSel.size||!v)return;const row=document.getElementById('be-ship-row');if(v==='ja'){row.style.display='flex';status('Versandmethoden wählen, dann OK');return}row.style.display='none';const r=await window.api.bulkUpdate([...bulkSel],{versandMode:v});await reloadItems();status(`${r.length} Anzeigen aktualisiert`)}
 async function bulkApplyShipping(){if(!bulkSel.size)return;const s0=document.getElementById('be-s0').value,s1=document.getElementById('be-s1').value;const sh=[s0,s1].filter(Boolean);const r=await window.api.bulkUpdate([...bulkSel],{versandMode:'ja',shippingOptions:sh});await reloadItems();status(`${r.length} Anzeigen aktualisiert`)}
 async function bulkApplyBuyNow(){const v=document.getElementById('be-buynow').value;if(!bulkSel.size||!v)return;const r=await window.api.bulkUpdate([...bulkSel],{buyNow:v==='true'});await reloadItems();status(`${r.length} Anzeigen aktualisiert`)}
