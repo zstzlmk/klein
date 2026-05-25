@@ -57,6 +57,37 @@ function packageSizeFor(shippingIds, sizeMap) {
     return best;
 }
 
+// Build a { attrKey: { optionValue: label } } map from app/categories.json
+// so we can translate stored option values like "pine" to the rendered label
+// like "Kiefer". The same attrKey can appear under multiple categories with
+// the same options, so a flat merged map is enough for our lookup needs.
+let _CATEGORY_LABEL_MAP = null;
+function loadCategoryLabelMap() {
+    if (_CATEGORY_LABEL_MAP !== null) return _CATEGORY_LABEL_MAP;
+    const map = {};
+    try {
+        const data = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'categories.json'), 'utf-8'));
+        for (const schema of Object.values(data.attributeSchemas || {})) {
+            for (const [attrKey, attr] of Object.entries(schema.attributes || {})) {
+                const opts = (map[attrKey] ||= {});
+                for (const o of attr.options || []) {
+                    if (o && o.value && o.label) opts[o.value] = o.label;
+                }
+            }
+        }
+    } catch (e) {
+        log(`[categories] failed to load: ${e.message}`);
+    }
+    _CATEGORY_LABEL_MAP = map;
+    return map;
+}
+
+function labelForOption(attrKey, optionValue) {
+    if (!attrKey || !optionValue) return null;
+    const map = loadCategoryLabelMap();
+    return map[attrKey]?.[optionValue] || null;
+}
+
 async function connectToBrowser() {
     const r = await fetch('http://127.0.0.1:9222/json/version');
     const d = await r.json();
@@ -568,7 +599,20 @@ async function runSingleItem(itemPath) {
             switch (info.type) {
                 case 'combobox': {
                     await page.click(`#${eid}`); await wait(300);
-                    const s = await page.evaluate((v) => { for (const o of document.querySelectorAll('[role="option"]')) { if ((o.getAttribute('data-value') || '') === v || o.textContent.trim().toLowerCase() === v.toLowerCase()) { o.click(); return true; } } return false; }, value);
+                    const label = labelForOption(attrName, value);
+                    const s = await page.evaluate((v, lbl) => {
+                        const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+                        const targetVal = String(v || '');
+                        const targetLbl = lbl ? norm(lbl) : null;
+                        for (const o of document.querySelectorAll('[role="option"]')) {
+                            const dv = o.getAttribute('data-value') || '';
+                            const txt = norm(o.textContent);
+                            if (dv === targetVal) { o.click(); return true; }
+                            if (txt === norm(targetVal)) { o.click(); return true; }
+                            if (targetLbl && txt === targetLbl) { o.click(); return true; }
+                        }
+                        return false;
+                    }, value, label);
                     if (!s) await page.keyboard.press('Escape'); await wait(200); return s;
                 }
                 case 'dialog': {
