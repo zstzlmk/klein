@@ -169,13 +169,28 @@ async function selectCategory(page, categoryPath) {
                 const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
                 const target = norm(label);
                 const visible = (el) => !!(el.offsetParent || el.getClientRects().length);
+                // Match strategies in priority order:
+                //   1. exact text match
+                //   2. text starts with target (e.g. "Herrenbekleidung (1234)")
+                //   3. text contains target as a whole word
+                const matchEl = (el, text) => {
+                    if (text === target) return 3;
+                    if (text.startsWith(target + ' ') || text.startsWith(target + '(')) return 2;
+                    if (new RegExp('(^|[^a-zäöüß])' + target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^a-zäöüß])').test(text)) return 1;
+                    return 0;
+                };
                 const scopedSel = 'dialog a, dialog button, dialog li, [role="dialog"] a, [role="dialog"] button, [role="dialog"] li, .categoryselector a, .categoryselector button, .categoryselector li';
                 const fallbackSel = 'a, button, li';
-                const matchIn = (sel) => {
-                    const cands = Array.from(document.querySelectorAll(sel));
-                    return cands.find(el => visible(el) && norm(el.textContent) === target);
+                const findBest = (sel) => {
+                    let best = null, bestScore = 0;
+                    for (const el of document.querySelectorAll(sel)) {
+                        if (!visible(el)) continue;
+                        const score = matchEl(el, norm(el.textContent));
+                        if (score > bestScore) { best = el; bestScore = score; }
+                    }
+                    return best;
                 };
-                const m = matchIn(scopedSel) || matchIn(fallbackSel);
+                const m = findBest(scopedSel) || findBest(fallbackSel);
                 if (!m) return false;
                 m.scrollIntoView({ block: 'center' });
                 m.click();
@@ -187,9 +202,29 @@ async function selectCategory(page, categoryPath) {
         return false;
     };
 
+    // For diagnostics: dump the visible category-link-looking elements on the page.
+    const dumpVisible = () => page.evaluate(() => {
+        const visible = (el) => !!(el.offsetParent || el.getClientRects().length);
+        const sel = 'a, button, li';
+        const out = [];
+        for (const el of document.querySelectorAll(sel)) {
+            if (!visible(el)) continue;
+            const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+            if (t && t.length < 80) out.push({ tag: el.tagName.toLowerCase(), text: t });
+        }
+        return { url: location.href, items: out.slice(0, 60) };
+    });
+
     for (const part of parts) {
         const ok = await findAndClick(part);
-        if (!ok) { log(`[category] failed to click segment: ${part}`); return false; }
+        if (!ok) {
+            log(`[category] failed to click segment: ${part}`);
+            try {
+                const dump = await dumpVisible();
+                log(`[category] picker dump url=${dump.url} visible=${JSON.stringify(dump.items).slice(0, 1500)}`);
+            } catch (e) { /* ignore */ }
+            return false;
+        }
         // Wait for the new level / page to start loading the next list.
         await wait(400);
     }
