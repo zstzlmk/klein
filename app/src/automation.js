@@ -650,29 +650,38 @@ async function runSingleItem(itemPath, opts = {}) {
         const resolveAttr = (key) => key.replace(/_s$/, '');
         const fillAttribute = async (attrName, value, autocompleteLabels = {}) => {
             const info = await page.evaluate((name) => {
-                const h = document.querySelector(`input[name="attributeMap[${name}]"]`);
+                // Some attributes ship with an `_s` (string-typed) suffix on the form
+                // even though we strip it off our saved keys. Try both names.
+                const tryNames = [name, name + '_s'];
+                let h = null, resolvedName = name;
+                for (const n of tryNames) {
+                    h = document.querySelector(`input[name="attributeMap[${n}]"]`);
+                    if (h) { resolvedName = n; break; }
+                }
                 if (!h) return null;
-                const el = document.getElementById(name);
+                // The visible control may be keyed by either the bare name or the _s name.
+                const el = document.getElementById(name) || document.getElementById(resolvedName);
+                const usedId = el ? el.id : null;
                 // No element with this ID? Look for a sibling/related dialog-trigger button.
                 if (!el) {
                     let node = h;
                     for (let i = 0; i < 6 && node; i++, node = node.parentElement) {
                         const btn = node.querySelector && node.querySelector('button[aria-haspopup="dialog"]');
                         if (btn) {
-                            const handle = '__auto_dialog_' + name.replace(/\W+/g, '_');
+                            const handle = '__auto_dialog_' + resolvedName.replace(/\W+/g, '_');
                             btn.setAttribute('data-auto-handle', handle);
-                            return { type: 'dialog', handle };
+                            return { type: 'dialog', handle, resolvedName };
                         }
                     }
-                    return { type: 'hidden-only' };
+                    return { type: 'hidden-only', resolvedName };
                 }
                 const tag = el.tagName.toLowerCase(), role = el.getAttribute('role') || '', hp = el.getAttribute('aria-haspopup') || '';
-                if (tag === 'button' && hp === 'dialog') return { type: 'dialog', id: name };
-                if (tag === 'button' && role === 'combobox') return { type: 'combobox', id: name };
-                if (tag === 'input' && role === 'combobox') return { type: 'autocomplete', id: name };
-                if (tag === 'input') return { type: 'input', id: name };
-                if (tag === 'select') return { type: 'select', id: name };
-                return { type: 'unknown', tag, role, hp };
+                if (tag === 'button' && hp === 'dialog') return { type: 'dialog', id: usedId, resolvedName };
+                if (tag === 'button' && role === 'combobox') return { type: 'combobox', id: usedId, resolvedName };
+                if (tag === 'input' && role === 'combobox') return { type: 'autocomplete', id: usedId, resolvedName };
+                if (tag === 'input') return { type: 'input', id: usedId, resolvedName };
+                if (tag === 'select') return { type: 'select', id: usedId, resolvedName };
+                return { type: 'unknown', tag, role, hp, resolvedName };
             }, attrName);
             log(`[fillAttribute] attr=${attrName} value=${JSON.stringify(value)} info=${JSON.stringify(info)}`);
             if (!info) return false;
@@ -865,12 +874,10 @@ async function runSingleItem(itemPath, opts = {}) {
             const ca = await page.evaluate(() => { const e = document.querySelector('input[name*=".condition"]'); const m = e && e.name.match(/attributeMap\[(.+)\]/); return m ? m[1] : null; });
             if (ca) attrs[ca] = adData.condition;
         }
-        // The .art_s attribute is implicit in the leaf category we already
-        // selected, so don't try to set it again — it usually isn't even a
-        // visible form field on the page.
         // The .versand attribute is handled below by the dedicated Versand step.
+        // (We keep .art_s — Kleinanzeigen guesses it from the title, but we want
+        // the user's explicit choice. fillAttribute will set it on the form.)
         for (const k of Object.keys(attrs)) {
-            if (/\.art$/.test(k) || /\.art_s$/.test(k)) delete attrs[k];
             if (/\.versand$/.test(k) || /\.versand_s$/.test(k)) delete attrs[k];
         }
         log(`[attrs] item=${path.basename(itemPath)} keys=${JSON.stringify(Object.keys(attrs))} autocompleteLabels=${JSON.stringify(autocompleteLabels)}`);
