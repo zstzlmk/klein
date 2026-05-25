@@ -67,7 +67,7 @@ button,input,textarea,select,a{-webkit-app-region:no-drag}
 .pitem:hover .rm{display:flex}.pitem.dragging{opacity:.4}
 .padd{width:88px;height:88px;border-radius:6px;border:2px dashed var(--bd);background:none;color:var(--tx2);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;gap:4px}
 .padd:hover{border-color:var(--ac);color:var(--ac)}
-.sbar{position:fixed;bottom:60px;left:0;right:0;background:var(--sf);border-top:1px solid var(--bd);padding:8px 16px;font-size:12px;color:var(--tx2);z-index:100;display:none}.sbar.vis{display:block}
+.sbar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:10px 16px;font-size:12px;color:var(--tx);z-index:1000;box-shadow:0 4px 16px rgba(0,0,0,.4);max-width:90vw;opacity:0;pointer-events:none;transition:opacity .15s ease}.sbar.vis{opacity:1}
 </style>
 </head>
 <body>
