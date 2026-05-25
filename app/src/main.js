@@ -92,6 +92,10 @@ function createWindow() {
         webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true }
     });
     win.loadFile(path.join(__dirname, 'index.html'));
+    const sendFs = () => { try { win.webContents.send('fullscreen-changed', win.isFullScreen()); } catch (e) {} };
+    win.on('enter-full-screen', sendFs);
+    win.on('leave-full-screen', sendFs);
+    win.webContents.on('did-finish-load', sendFs);
 }
 
 app.setName('Kleinanzeigen Upload');

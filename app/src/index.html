@@ -11,6 +11,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 button,input,textarea,select,a{-webkit-app-region:no-drag}
 .side{width:260px;min-width:260px;background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column}
 .side-hdr{padding:38px 16px 12px;border-bottom:1px solid var(--bd);display:flex;gap:8px}
+body.fs .side-hdr{padding-top:12px}
+body.fs .main{padding-top:12px}
 .side-hdr button{flex:1;padding:6px 10px;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;color:var(--tx);cursor:pointer;font-size:12px}
 .side-hdr button.plus{font-size:18px;font-weight:300;line-height:1;color:var(--tx)}
 .side-hdr button:hover{background:var(--bd)}
@@ -272,6 +274,7 @@ async function refreshChromeStatus(){const s=await window.api.chromeStatus();con
 async function launchChrome(){const b=document.getElementById('chromeBtn');b.disabled=true;status('Starte Chrome…');const r=await window.api.launchChrome();b.disabled=false;if(!r.ok){status('Fehler: '+r.error);return}status(r.alreadyRunning?'Chrome läuft bereits':'Chrome gestartet');refreshChromeStatus()}
 setInterval(refreshChromeStatus,3000);refreshChromeStatus();
 window.api.onAutomationProgress&&window.api.onAutomationProgress(d=>{const name=d.itemPath?.split('/').pop()||'';if(d.phase==='start')status(`(${d.index+1}/${d.total}) ${name}…`);else if(d.phase==='done'){if(!d.success)status(`(${d.index+1}/${d.total}) ${name}: ${d.error}`)}});
+window.api.onFullscreenChanged&&window.api.onFullscreenChanged(isFs=>{document.body.classList.toggle('fs',!!isFs)});
 function status(m){const b=document.getElementById('sbar');b.textContent=m;b.className='sbar vis';setTimeout(()=>b.className='sbar',5000)}
 init();
 </script>

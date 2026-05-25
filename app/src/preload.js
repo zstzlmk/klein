@@ -20,4 +20,9 @@ contextBridge.exposeInMainWorld('api', {
         ipcRenderer.on('automation-progress', handler);
         return () => ipcRenderer.removeListener('automation-progress', handler);
     },
+    onFullscreenChanged: (cb) => {
+        const handler = (_, isFs) => cb(isFs);
+        ipcRenderer.on('fullscreen-changed', handler);
+        return () => ipcRenderer.removeListener('fullscreen-changed', handler);
+    },
 });
