@@ -40,6 +40,16 @@ function loadCategories() {
     try { return JSON.parse(fs.readFileSync(CATEGORIES_PATH, 'utf-8')); } catch (e) { return null; }
 }
 
+// A `posted` timestamp counts as "recent" for 24h. After that we fall back
+// to treating the item as unposted (sort, gray-out, tag) so it can be re-listed.
+const POSTED_RECENT_MS = 24 * 60 * 60 * 1000;
+function isPostedRecently(data) {
+    if (!data || !data.posted) return false;
+    const t = Date.parse(data.posted);
+    if (isNaN(t)) return false;
+    return (Date.now() - t) < POSTED_RECENT_MS;
+}
+
 function loadItems(folder) {
     if (!folder || !fs.existsSync(folder)) return [];
     return fs.readdirSync(folder, { withFileTypes: true })
@@ -58,8 +68,9 @@ function loadItems(folder) {
             return { name: d.name, path: p, data, images: ordered };
         })
         .sort((a, b) => {
-            // Posted items go to the bottom; among them, most-recently posted first.
-            const ap = a.data.posted, bp = b.data.posted;
+            // Recently-posted items (within 24h) go to the bottom; most-recent first.
+            const ap = isPostedRecently(a.data) ? a.data.posted : null;
+            const bp = isPostedRecently(b.data) ? b.data.posted : null;
             if (ap && !bp) return 1;
             if (!ap && bp) return -1;
             if (ap && bp) return bp.localeCompare(ap);
