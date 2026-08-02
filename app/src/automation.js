@@ -106,7 +106,47 @@ function normalizeCategoryLabel(s) {
     return String(s || '').replace(/[→›>»]/g, '>').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
-async function selectCategory(page, categoryPath) {
+// Resolve the exact click path through the manual category picker
+// (/p-kategorie-aendern.html) using the bundled categories.json tree. The
+// tree's node identifiers are the picker's anchor ids ("cat_<identifier>"),
+// so no text matching is needed. The first levels are matched by name against
+// the saved categoryPath; deeper levels (Art/Marke/Modell) are attribute-backed
+// and matched by value against the item's saved dynamicFields — the tree's
+// fieldName (e.g. "attributeMap[kleidung_herren.art_s]") says which attribute
+// each level maps to.
+function resolvePickerPath(categoryPath, dynamicFields = {}) {
+    let tree;
+    try {
+        tree = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'categories.json'), 'utf-8')).tree;
+    } catch (e) {
+        return { error: `categories.json not readable: ${e.message}` };
+    }
+    const ids = [];
+    let node = tree;
+    for (const part of categoryPath.split('>').map(s => s.trim()).filter(Boolean)) {
+        const want = normalizeCategoryLabel(part);
+        const child = (node.children || []).find(c => normalizeCategoryLabel(c.name) === want);
+        if (!child) return { error: `segment "${part}" not found under "${node.name}"` };
+        ids.push(child.identifier);
+        node = child;
+    }
+    // The picker requires drilling down to a leaf; each remaining level is an
+    // attribute (Art, Marke, ...) whose value we already have in dynamicFields.
+    while (node.children && node.children.length) {
+        const m = String(node.children[0].fieldName || '').match(/^attributeMap\[(.+?)\]$/);
+        if (!m) return { error: `categoryPath too short: "${node.name}" still has sub-categories` };
+        const attrKey = m[1]; // e.g. "kleidung_herren.art_s"
+        const value = dynamicFields[attrKey] ?? dynamicFields[attrKey.replace(/_s$/, '')];
+        if (value == null) return { error: `no saved value for ${attrKey} (picker level "${node.childrenDescription || 'Art'}")` };
+        const child = node.children.find(c => String(c.fieldValue) === String(value));
+        if (!child) return { error: `value "${value}" not found for ${attrKey} under "${node.name}"` };
+        ids.push(child.identifier);
+        node = child;
+    }
+    return { ids };
+}
+
+async function selectCategory(page, categoryPath, dynamicFields = {}) {
     const want = normalizeCategoryLabel(categoryPath);
     const wantLeaf = want.split('>').pop().trim();
     // The first 2 levels are the actual Kleinanzeigen category; the 3rd level
@@ -164,129 +204,87 @@ async function selectCategory(page, categoryPath) {
         log('[category] no suggestions appeared within 6s, falling back to manual picker');
     }
 
-    log(`[category] no exact suggestion, opening manual picker for: ${categoryPath}`);
+    // 2. No matching suggestion — use the manual picker deterministically.
+    //    Resolve the click path from categories.json first, so we never rely
+    //    on matching visible text on the picker page.
+    const resolved = resolvePickerPath(categoryPath, dynamicFields);
+    if (resolved.error) {
+        log(`[category] cannot resolve picker path: ${resolved.error}`);
+        return false;
+    }
+    log(`[category] no suggestion match, picker path: ${resolved.ids.map(id => 'cat_' + id).join(' / ')}`);
 
-    // 2. No matching suggestion — fall back to manual picker.
-    //    "Andere Kategorie wählen" navigates to /p-kategorie-aendern.html, a
-    //    full page (not a dialog) with one segment list per level. Each click
-    //    is a real navigation, so we must poll for the next level to appear.
+    //    The picker link's text depends on state: "Andere Kategorie wählen"
+    //    when suggestions were shown, "Wähle deine Kategorie" when the title
+    //    produced none. Prefer the anchor inside the suggestions container,
+    //    then fall back to a text match for either label.
     const opened = await page.evaluate(() => {
+        const scoped = document.querySelector('#ad-category-suggestions a');
+        if (scoped) { scoped.click(); return true; }
         const links = Array.from(document.querySelectorAll('a, button'));
-        const link = links.find(el => /andere kategorie/i.test(el.textContent || ''));
+        const link = links.find(el => /andere kategorie|wähle deine kategorie|kategorie wählen/i.test(el.textContent || ''));
         if (link) { link.click(); return true; }
         return false;
     });
     if (!opened) { log('[category] could not open manual picker'); return false; }
 
-    const parts = categoryPath.split('>').map(s => s.trim()).filter(Boolean);
+    // Clicking the link triggers a full navigation to /p-kategorie-aendern.html.
+    // Poll for the picker columns (evaluate can throw mid-navigation).
+    let onPicker = false;
+    for (let i = 0; i < 40 && !onPicker; i++) {
+        onPicker = await page.evaluate(() => !!document.querySelector('.category-selection-list'))
+            .catch(() => false);
+        if (!onPicker) await wait(250);
+    }
+    if (!onPicker) { log('[category] picker page did not load'); return false; }
 
-    // Poll up to ~6s for a clickable element with `label` to appear, then click it.
-    const findAndClick = async (label) => {
-        for (let i = 0; i < 24; i++) {
-            const ok = await page.evaluate((label) => {
-                const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-                const target = norm(label);
-                const visible = (el) => !!(el.offsetParent || el.getClientRects().length);
-                // Match strategies in priority order:
-                //   1. exact text match
-                //   2. text starts with target (e.g. "Herrenbekleidung (1234)")
-                //   3. text contains target as a whole word
-                const scoreText = (text) => {
-                    if (text === target) return 3;
-                    if (text.startsWith(target + ' ') || text.startsWith(target + '(')) return 2;
-                    if (new RegExp('(^|[^a-zäöüß])' + target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^a-zäöüß])').test(text)) return 1;
-                    return 0;
-                };
-                // Prefer real navigation elements (<a>, <button>) over <li> wrappers,
-                // since <li> often just contains the <a> and clicking the <li> is a no-op.
-                const tagPriority = (tag) => ({ a: 3, button: 2, li: 1 }[tag] || 0);
-                const scopedSel = 'dialog a, dialog button, dialog li, [role="dialog"] a, [role="dialog"] button, [role="dialog"] li, .categoryselector a, .categoryselector button, .categoryselector li';
-                const fallbackSel = 'a, button, li';
-                const findBest = (sel) => {
-                    let best = null, bestKey = [-1, -1];
-                    for (const el of document.querySelectorAll(sel)) {
-                        if (!visible(el)) continue;
-                        const score = scoreText(norm(el.textContent));
-                        if (score === 0) continue;
-                        const tagScore = tagPriority(el.tagName.toLowerCase());
-                        const key = [score, tagScore];
-                        if (key[0] > bestKey[0] || (key[0] === bestKey[0] && key[1] > bestKey[1])) {
-                            best = el; bestKey = key;
-                        }
-                    }
-                    return best;
-                };
-                const m = findBest(scopedSel) || findBest(fallbackSel);
-                if (!m) return false;
-                m.scrollIntoView({ block: 'center' });
-                m.click();
-                return { tag: m.tagName.toLowerCase(), text: norm(m.textContent), href: m.getAttribute && m.getAttribute('href') || null };
-            }, label);
-            if (ok) {
-                log(`[category] picker clicked ${ok.tag}="${ok.text}"${ok.href ? ' href=' + ok.href : ''}`);
+    // Click each level via its stable anchor id (e.g. #cat_153 → #cat_160 →
+    // #cat_jacken_maentel). Each click renders the next column in-page (hash
+    // navigation), so poll for the next anchor. If the same id ever appears in
+    // two columns, the rightmost (last in DOM) is the one we want.
+    for (const id of resolved.ids) {
+        let clicked = false;
+        for (let i = 0; i < 24 && !clicked; i++) {
+            clicked = await page.evaluate((id) => {
+                const els = document.querySelectorAll('[id="cat_' + id + '"]');
+                const el = els[els.length - 1];
+                if (!el) return false;
+                el.scrollIntoView({ block: 'center' });
+                el.click();
                 return true;
-            }
-            await wait(250);
+            }, id).catch(() => false);
+            if (!clicked) await wait(250);
         }
-        return false;
-    };
-
-    // For diagnostics: dump the visible category-link-looking elements on the page.
-    const dumpVisible = () => page.evaluate(() => {
-        const visible = (el) => !!(el.offsetParent || el.getClientRects().length);
-        const sel = 'a, button, li';
-        const out = [];
-        for (const el of document.querySelectorAll(sel)) {
-            if (!visible(el)) continue;
-            const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
-            if (t && t.length < 80) out.push({ tag: el.tagName.toLowerCase(), text: t });
-        }
-        return { url: location.href, items: out.slice(0, 60) };
-    });
-
-    for (const part of parts) {
-        const ok = await findAndClick(part);
-        if (!ok) {
-            log(`[category] failed to click segment: ${part}`);
-            try {
-                const dump = await dumpVisible();
-                log(`[category] picker dump url=${dump.url} visible=${JSON.stringify(dump.items).slice(0, 1500)}`);
-            } catch (e) { /* ignore */ }
-            return false;
-        }
-        // Wait for either a navigation or DOM update before searching the next level.
-        try {
-            await page.waitForNavigation({ timeout: 4000, waitUntil: 'domcontentloaded' });
-        } catch (e) { /* no navigation, that's fine — could be a SPA update */ }
+        if (!clicked) { log(`[category] picker: anchor cat_${id} never appeared`); return false; }
+        log(`[category] picker: clicked cat_${id}`);
         await wait(300);
     }
 
-    // Confirm the leaf selection. The picker uses "Weiter" on the multi-column
-    // page, or "Bestätigen"/"Fertig" in older dialog variants. Clicking it
-    // navigates back to the post-ad form.
-    const confirmed = await page.evaluate(() => {
-        const btns = Array.from(document.querySelectorAll('button'));
-        const b = btns.find(el => /^(weiter|bestätigen|übernehmen|fertig|ok)$/i.test((el.textContent || '').trim()) && (el.offsetParent || el.getClientRects().length) && !el.disabled);
-        if (b) { b.click(); return true; }
+    // Sanity check: the picker mirrors the selection into hidden form fields.
+    const state = await page.evaluate(() => {
+        const f = document.getElementById('postad-step1-frm');
+        if (!f) return null;
+        const val = (n) => { const el = f.querySelector('[name="' + n + '"]'); return el ? el.value : null; };
+        return { parentCategoryId: val('parentCategoryId'), categoryId: val('categoryId') };
+    }).catch(() => null);
+    log(`[category] picker: form state ${JSON.stringify(state)}`);
+
+    // Submit with "Weiter" — POSTs the step1 form back to the post-ad page.
+    const submitted = await page.evaluate(() => {
+        const btn = document.querySelector('#postad-step1-sbmt button')
+            || document.querySelector('#postad-step1-frm button[type="submit"]');
+        if (btn && !btn.disabled) { btn.click(); return true; }
         return false;
-    });
-    if (!confirmed) {
-        log('[category] picker: confirm button not found');
-        return false;
-    }
-    log('[category] picker: clicked confirm, waiting for navigation back to form');
-    // Wait for the picker page to navigate away (back to the post-ad form).
+    }).catch(() => false);
+    if (!submitted) { log('[category] picker: Weiter button not found'); return false; }
+    log('[category] picker: clicked Weiter, waiting for the post-ad form');
     try {
-        await page.waitForFunction(
-            () => !location.pathname.includes('p-kategorie-aendern'),
-            { timeout: 10000 }
-        );
+        await page.waitForSelector('#ad-title', { visible: true, timeout: 15000 });
     } catch (e) {
-        log('[category] picker: never navigated away from p-kategorie-aendern');
+        log('[category] picker: never returned to the post-ad form');
         return false;
     }
-    await page.waitForSelector('#ad-title', { visible: true, timeout: 10000 });
-    log('[category] picker: back on form');
+    log('[category] picker: back on form with category set');
     return true;
 }
 
@@ -845,10 +843,14 @@ async function runSingleItem(itemPath, opts = {}) {
 
         // Category selection: typing the title triggers either a small list
         // of suggested categories (radio buttons) or nothing. Pick the one
-        // matching the saved categoryPath, or fall through to "Andere
-        // Kategorie wählen" and drill in manually.
+        // matching the saved categoryPath; otherwise drill through the manual
+        // picker deterministically. The picker's deeper levels (Art/Marke/...)
+        // are attribute-backed, so pass the saved dynamicFields along.
         if (adData.categoryPath) {
-            try { await selectCategory(page, adData.categoryPath); }
+            try {
+                const ok = await selectCategory(page, adData.categoryPath, adData.dynamicFields || {});
+                if (!ok) log('[category] selection failed — the ad will be missing its category');
+            }
             catch (e) { console.warn('Category selection failed:', e.message); }
         }
 
