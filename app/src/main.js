@@ -150,14 +150,25 @@ ipcMain.handle('run-automation', async (event, { itemPaths, submit }) => {
     if (!(await isDebugChromeRunning())) return (itemPaths || []).map(p => ({ itemPath: p, success: false, error: 'Chrome nicht verbunden. Erst 🌐 klicken.' }));
     automationRunning = true;
     try {
-        const { runSingleItem } = require(path.join(__dirname, 'automation.js'));
+        const { runSingleItem, log, disconnectBrowser } = require(path.join(__dirname, 'automation.js'));
         const results = [];
         const total = itemPaths.length;
+        const ITEM_TIMEOUT_MS = 5 * 60 * 1000;
+        log(`[batch] starting: ${total} item(s), submit=${!!submit}`);
         for (let i = 0; i < total; i++) {
             const p = itemPaths[i];
+            log(`[batch] item ${i + 1}/${total}: ${path.basename(p)}`);
             try { event.sender.send('automation-progress', { index: i, total, itemPath: p, phase: 'start' }); } catch (e) {}
+            let watchdog;
             try {
-                await runSingleItem(p, { submit: !!submit });
+                // Watchdog: if an item silently hangs (e.g. a CDP call that
+                // never resolves), fail it loudly instead of freezing the batch.
+                await Promise.race([
+                    runSingleItem(p, { submit: !!submit }),
+                    new Promise((_, reject) => {
+                        watchdog = setTimeout(() => reject(new Error(`watchdog: item did not finish within ${ITEM_TIMEOUT_MS / 60000} minutes`)), ITEM_TIMEOUT_MS);
+                    }),
+                ]);
                 results.push({ itemPath: p, success: true });
                 if (submit) {
                     // Mark item as posted so it doesn't show up in the editor next time.
@@ -170,14 +181,24 @@ ipcMain.handle('run-automation', async (event, { itemPaths, submit }) => {
                 }
                 try { event.sender.send('automation-progress', { index: i, total, itemPath: p, phase: 'done', success: true }); } catch (e) {}
             } catch (e) {
+                log(`[batch] item ${i + 1}/${total} FAILED: ${path.basename(p)} — ${e.message}`);
                 results.push({ itemPath: p, success: false, error: e.message });
+                // Drop the shared CDP connection so a possibly-hung in-flight
+                // call can't interfere with anything that runs after us.
+                try { disconnectBrowser(); } catch (e2) {}
                 try { event.sender.send('automation-progress', { index: i, total, itemPath: p, phase: 'done', success: false, error: e.message }); } catch (e2) {}
                 // If we were actually submitting and one fails, stop the batch
                 // rather than charging ahead — likely the page is in a broken
                 // state and subsequent items would fail too.
-                if (submit) break;
+                if (submit) {
+                    log(`[batch] stopping after failure (${total - i - 1} item(s) left unprocessed)`);
+                    break;
+                }
+            } finally {
+                clearTimeout(watchdog);
             }
         }
+        log(`[batch] finished: ${results.filter(r => r.success).length}/${results.length} ok`);
         return results;
     } finally { automationRunning = false; }
 });
@@ -231,7 +252,7 @@ ipcMain.handle('get-shipping-options', () => {
 ipcMain.handle('refresh-shipping', async () => {
     if (!(await isDebugChromeRunning())) return { ok: false, error: 'Chrome nicht verbunden. Erst 🌐 klicken.' };
     try {
-        const puppeteer = require('puppeteer');
+        const puppeteer = (await import('puppeteer')).default; // ESM-only since v25
         const r = await fetch(`http://127.0.0.1:${CHROME_DEBUG_PORT}/json/version`);
         const d = await r.json();
         const browser = await puppeteer.connect({ browserWSEndpoint: d.webSocketDebuggerUrl, defaultViewport: null });

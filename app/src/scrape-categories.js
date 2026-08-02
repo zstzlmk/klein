@@ -11,7 +11,6 @@
  * Usage: node scrape-categories.js
  * (Chrome must be running with --remote-debugging-port=9222 and logged into Kleinanzeigen)
  */
-const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
@@ -19,6 +18,7 @@ const OUTPUT = path.join(__dirname, '..', 'categories.json');
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
 async function connectToBrowser() {
+    const puppeteer = (await import('puppeteer')).default; // ESM-only since v25
     const r = await fetch('http://127.0.0.1:9222/json/version');
     const d = await r.json();
     return puppeteer.connect({ browserWSEndpoint: d.webSocketDebuggerUrl, defaultViewport: null });

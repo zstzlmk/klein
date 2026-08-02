@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const puppeteer = require('puppeteer');
+
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
@@ -51,6 +51,7 @@ function loadTemplate(folder, name) {
 }
 
 async function connectToBrowser() {
+    const puppeteer = (await import('puppeteer')).default; // ESM-only since v25
     const r = await fetch('http://127.0.0.1:9222/json/version');
     const d = await r.json();
     return puppeteer.connect({ browserWSEndpoint: d.webSocketDebuggerUrl, defaultViewport: null });

@@ -1,7 +1,17 @@
-const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 const { app } = require('electron');
+
+// puppeteer >= 25 ships as ESM-only: require('puppeteer') throws
+// ERR_REQUIRE_ESM, so it must be loaded lazily via dynamic import().
+let _puppeteerMod = null;
+async function getPuppeteer() {
+    if (!_puppeteerMod) {
+        const m = await import('puppeteer');
+        _puppeteerMod = m.default || m;
+    }
+    return _puppeteerMod;
+}
 
 const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.heic'];
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
@@ -94,10 +104,24 @@ function labelForOption(attrKey, optionValue) {
     return map[attrKey]?.[optionValue] || null;
 }
 
+// Shared CDP connection. Reconnecting for every item is exactly where the
+// "Requesting main frame too early!" race lives (puppeteer re-attaches to all
+// targets while the freshly reloaded form page is still initializing), so we
+// connect once and reuse the session across the whole batch.
+let _browser = null;
 async function connectToBrowser() {
+    if (_browser && _browser.connected) return _browser;
+    disconnectBrowser();
+    const puppeteer = await getPuppeteer();
     const r = await fetch('http://127.0.0.1:9222/json/version');
     const d = await r.json();
-    return puppeteer.connect({ browserWSEndpoint: d.webSocketDebuggerUrl, defaultViewport: null });
+    _browser = await puppeteer.connect({ browserWSEndpoint: d.webSocketDebuggerUrl, defaultViewport: null });
+    log('[connect] new CDP connection established');
+    return _browser;
+}
+function disconnectBrowser() {
+    try { if (_browser) _browser.disconnect(); } catch (e) { /* ignore */ }
+    _browser = null;
 }
 
 // Normalize a category label so suggestions ("A → B → C") match saved paths
@@ -229,12 +253,25 @@ async function selectCategory(page, categoryPath, dynamicFields = {}) {
     if (!opened) { log('[category] could not open manual picker'); return false; }
 
     // Clicking the link triggers a full navigation to /p-kategorie-aendern.html.
-    // Poll for the picker columns (evaluate can throw mid-navigation).
+    // Poll up to 30s for the picker columns (evaluate can throw mid-navigation);
+    // if nothing happened after ~7s, re-click the link once — the first click
+    // occasionally gets swallowed by the page's own scripts.
     let onPicker = false;
-    for (let i = 0; i < 40 && !onPicker; i++) {
+    for (let i = 0; i < 120 && !onPicker; i++) {
         onPicker = await page.evaluate(() => !!document.querySelector('.category-selection-list'))
             .catch(() => false);
-        if (!onPicker) await wait(250);
+        if (onPicker) break;
+        if (i === 28) {
+            log('[category] picker not loaded after 7s, re-clicking the link');
+            await page.evaluate(() => {
+                const scoped = document.querySelector('#ad-category-suggestions a');
+                if (scoped) { scoped.click(); return; }
+                const links = Array.from(document.querySelectorAll('a, button'));
+                const link = links.find(el => /andere kategorie|wähle deine kategorie|kategorie wählen/i.test(el.textContent || ''));
+                if (link) link.click();
+            }).catch(() => {});
+        }
+        await wait(250);
     }
     if (!onPicker) { log('[category] picker page did not load'); return false; }
 
@@ -654,21 +691,65 @@ async function runSingleItem(itemPath, opts = {}) {
 
     const browser = await connectToBrowser();
     try {
-        const pages = await browser.pages();
+        // Find the tab with the post-ad form. Right after connecting, pages
+        // can be mid-navigation or not yet hydrated — puppeteer then throws
+        // "Requesting main frame too early!" even from p.url(). So guard every
+        // per-page call and retry the whole scan a few times.
         let page = null;
-        for (const p of pages) {
-            if (!p.url().includes('kleinanzeigen.de')) continue;
-            try { await p.waitForSelector(SELECTORS.title, { visible: true, timeout: 1500 }); page = p; break; } catch (e) {}
+        let fallback = null; // any kleinanzeigen tab, in case the form isn't open
+        for (let attempt = 0; attempt < 4 && !page; attempt++) {
+            if (attempt > 0) await wait(1500);
+            let pages = [];
+            try { pages = await browser.pages(); } catch (e) { log(`[connect] browser.pages() failed: ${e.message}`); continue; }
+            for (const p of pages) {
+                try {
+                    if (!p.url().includes('kleinanzeigen.de')) continue;
+                    fallback = fallback || p;
+                    await p.waitForSelector(SELECTORS.title, { visible: true, timeout: 1500 });
+                    page = p; break;
+                } catch (e) { /* tab mid-navigation or no form — skip */ }
+            }
+        }
+        if (!page && fallback) {
+            // A kleinanzeigen tab exists but isn't on the form (e.g. stuck on
+            // the confirmation page) — steer it back to the form ourselves.
+            log('[connect] no form tab found, navigating a kleinanzeigen tab to the post-ad form');
+            try {
+                await fallback.goto(POST_FORM_URL, { waitUntil: 'domcontentloaded' });
+                await fallback.waitForSelector(SELECTORS.title, { visible: true, timeout: 15000 });
+                page = fallback;
+            } catch (e) { log(`[connect] fallback navigation failed: ${e.message}`); }
         }
         if (!page) throw new Error('Could not find Kleinanzeigen form page');
         await page.bringToFront();
         await page.waitForSelector(SELECTORS.title, { visible: true, timeout: 15000 });
 
+        // Type into a (possibly React-controlled) input and VERIFY the result.
+        // Fields like the ZIP trigger async lookups while typing; a re-render
+        // mid-typing can drop or duplicate keystrokes (e.g. 44141 → 44441).
+        // So: clear via the React-aware value setter, type with a small delay,
+        // then read the value back and retry slower on mismatch.
         const typeInField = async (sel, text) => {
             if (!text) return;
+            const want = String(text);
             await page.waitForSelector(sel, { visible: true, timeout: 5000 });
-            await page.click(sel, { clickCount: 3 }); await page.keyboard.press('Backspace');
-            await page.type(sel, String(text));
+            for (let attempt = 0; attempt < 3; attempt++) {
+                await page.evaluate((s) => {
+                    const el = document.querySelector(s);
+                    if (!el) return;
+                    el.focus();
+                    const proto = Object.getPrototypeOf(el);
+                    const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+                    if (setter) setter.call(el, ''); else el.value = '';
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                }, sel);
+                await page.type(sel, want, { delay: attempt === 0 ? 20 : 80 });
+                await wait(300);
+                const got = await page.evaluate((s) => { const el = document.querySelector(s); return el ? el.value : null; }, sel);
+                if (got === want) return;
+                log(`[typeInField] ${sel}: got "${got}", want "${want}" — retrying slower (attempt ${attempt + 1})`);
+            }
+            throw new Error(`typeInField: ${sel} would not accept "${want}"`);
         };
         const resolveAttr = (key) => key.replace(/_s$/, '');
         const fillAttribute = async (attrName, value, autocompleteLabels = {}) => {
@@ -956,7 +1037,13 @@ async function runSingleItem(itemPath, opts = {}) {
         if (submit) {
             await submitAd(page, itemPath);
         }
-    } finally { await browser.disconnect(); }
+    } catch (e) {
+        // A failed run may leave the CDP session in a bad state — drop the
+        // shared connection so the next item reconnects fresh.
+        disconnectBrowser();
+        throw e;
+    }
+    // On success, keep the connection alive for the next item in the batch.
 }
 
 const POST_FORM_URL = 'https://www.kleinanzeigen.de/p-anzeige-aufgeben-schritt2.html';
@@ -992,6 +1079,16 @@ async function submitAd(page, itemPath) {
         });
         throw new Error('submit did not navigate (form validation likely failed): ' + (err || 'no visible error'));
     }
+    // Navigating away is not enough: if the category was missing, the site
+    // redirects to the category picker instead of the confirmation page —
+    // that means the ad was NOT posted and must not be marked as such.
+    if (landed.includes('p-kategorie-aendern')) {
+        log(`[submit] FAILED — redirected to category picker (category was not set): ${landed}`);
+        throw new Error('submit rejected: category was not set (redirected to p-kategorie-aendern)');
+    }
+    if (!landed.includes('bestaetigung')) {
+        log(`[submit] warning: landed on unexpected page ${landed}`);
+    }
     log(`[submit] success, landed on ${landed}`);
 
     // Navigate back to the form for the next item.
@@ -1000,4 +1097,4 @@ async function submitAd(page, itemPath) {
     log('[submit] form ready for next item');
 }
 
-module.exports = { runSingleItem };
+module.exports = { runSingleItem, log, disconnectBrowser };

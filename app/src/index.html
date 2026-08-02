@@ -251,12 +251,18 @@ async function runBulk(){
   if(!ok)return;
   status(`Upload von ${bulkSel.size} Anzeigen...`);
   document.getElementById('bulkBtn').disabled=true;
-  const r=await window.api.runAutomation([...bulkSel],{submit:true});
-  const okN=r.filter(x=>x.success).length,fail=r.filter(x=>!x.success).length;
-  status(`Fertig: ${okN} gepostet, ${fail} fehlgeschlagen`);
-  bulkSel.clear();
-  await reloadItems();
-  document.getElementById('bulkBtn').disabled=false;
+  try{
+    const r=await window.api.runAutomation([...bulkSel],{submit:true});
+    const okN=r.filter(x=>x.success).length,fail=r.filter(x=>!x.success).length;
+    status(`Fertig: ${okN} gepostet, ${fail} fehlgeschlagen`);
+    bulkSel.clear();
+    await reloadItems();
+  }catch(e){
+    status(`Fehler beim Posten: ${e.message||e}`);
+  }finally{
+    document.getElementById('bulkBtn').disabled=false;
+    updBulk();
+  }
 }
 function populateBulkSelects(){const ships=getShips();const s0=document.getElementById('be-s0'),s1=document.getElementById('be-s1');if(!s0||!s1)return;
 const groupBuild=(placeholder)=>{const groups={SMALL:[],MEDIUM:[],LARGE:[],OTHER:[]};for(const o of ships){if(!o.v)continue;const g=(o.raw&&o.raw.packageSize)||'OTHER';groups[g].push(o)}const labels={SMALL:'Klein',MEDIUM:'Mittel',LARGE:'Groß',OTHER:'Sonstige'};const optHtml=o=>`<option value="${esc(o.v)}"${o.raw&&o.raw.description?` title="${esc(o.raw.description)}"`:''}>${esc(o.l)}</option>`;let out=`<option value="">${placeholder}</option>`;for(const g of ['SMALL','MEDIUM','LARGE','OTHER']){if(!groups[g].length)continue;out+=`<optgroup label="${labels[g]}">${groups[g].map(optHtml).join('')}</optgroup>`}return out};
